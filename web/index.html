@@ -1058,7 +1058,7 @@ function pickClientContact(){
   alert("La agenda de contactos todavía no está disponible en esta versión de prueba. Podés ingresar el teléfono manualmente.");
 }
 function exportBackup(){
-  const data={version:1,createdAt:new Date().toISOString(),orders,history,debts,clients,routeTemplates,activeRouteId,products:PRODUCTS};
+  const data={version:1,createdAt:new Date().toISOString(),orders,history,debts,clients,routeTemplates,activeRouteId,products:PRODUCTS,mvi_orders:orders,mvi_history:history,mvi_debts:debts,mvi_clients:clients,mvi_route_templates:routeTemplates,mvi_active_route:activeRouteId};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");a.href=url;a.download="manos-verdes-backup.json";a.click();
@@ -1072,12 +1072,12 @@ function importBackup(file){
       const data=JSON.parse(String(reader.result||""));
       if(!data||typeof data!=="object")throw new Error("Formato inválido");
       if(!confirm("La importación reemplazará los datos actuales. ¿Continuar?"))return;
-      orders=Array.isArray(data.orders)?data.orders:[];
-      history=Array.isArray(data.history)?data.history:[];
-      debts=Array.isArray(data.debts)?data.debts:[];
-      clients=Array.isArray(data.clients)?data.clients:[];
-      routeTemplates=Array.isArray(data.routeTemplates)?data.routeTemplates:[];
-      activeRouteId=data.activeRouteId??null;
+      orders=Array.isArray(data.orders)?data.orders:(Array.isArray(data.mvi_orders)?data.mvi_orders:[]);
+      history=Array.isArray(data.history)?data.history:(Array.isArray(data.mvi_history)?data.mvi_history:[]);
+      debts=Array.isArray(data.debts)?data.debts:(Array.isArray(data.mvi_debts)?data.mvi_debts:[]);
+      clients=Array.isArray(data.clients)?data.clients:(Array.isArray(data.mvi_clients)?data.mvi_clients:[]);
+      routeTemplates=Array.isArray(data.routeTemplates)?data.routeTemplates:(Array.isArray(data.mvi_route_templates)?data.mvi_route_templates:[]);
+      activeRouteId=data.activeRouteId??data.mvi_active_route??null;
       save();render();alert("Copia de seguridad importada.");
     }catch(e){alert("No se pudo importar la copia: "+e.message);}
   };
