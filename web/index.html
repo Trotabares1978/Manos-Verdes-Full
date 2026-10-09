@@ -190,7 +190,8 @@ function nav(){
     ["ruta","🗺️ Ruta"],
     ["stock","📦 Stock"],
     ["historial","📚 Historial"],
-    ["deudas","💳 Deudas"]
+    ["deudas","💳 Deudas"],
+    ["copia","💾 Copia"]
   ];
   document.getElementById("nav").innerHTML=a.map(x=>`<button class="${page==x[0]?"active":""}" onclick="go('${x[0]}')">${x[1]}</button>`).join("");
 }
@@ -204,6 +205,7 @@ function render(){
   if(page=="stock")stockPage(m);
   if(page=="historial")historyPage(m);
   if(page=="deudas")debtsPage(m);
+  if(page=="copia")backupPage(m);
 }
 function home(m){
   let p=orders.filter(o=>!o.delivered).length;
@@ -998,5 +1000,86 @@ function confirmSaveRoute(){
 }
 
 function loadRoute(id){
-    let route = routeTemplates.find(r => r.id === id);
-    if(!route) return;
+  const route=routeTemplates.find(r=>r.id===id);
+  if(!route)return;
+  activeRouteId=route.id;
+  save();
+  render();
+}
+function closeModal(){
+  const modal=document.getElementById("modal");
+  if(modal)modal.classList.remove("open");
+}
+function clearActiveRoute(){
+  if(!confirm("¿Cerrar la ruta activa? La ruta guardada se conserva."))return;
+  activeRouteId=null; save(); render();
+}
+function deleteRoute(id){
+  const route=routeTemplates.find(r=>r.id===id);
+  if(!route)return;
+  if(!confirm('¿Eliminar la ruta "'+route.name+'"?'))return;
+  routeTemplates=routeTemplates.filter(r=>r.id!==id);
+  if(activeRouteId===id)activeRouteId=null;
+  save(); render();
+}
+async function reoptimizeActiveRoute(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+  if(!route)return;
+  route.optimizedOrderIds=[]; save();
+  await optimizeActiveRoute();
+}
+function historyPage(m){
+  const rows=[...history].reverse();
+  m.innerHTML='<h2>📚 Historial</h2>'+(rows.length?rows.map(x=>'<div class="card"><b>'+esc(x.name||x.date||"Reparto")+'</b><div class="muted">'+esc(x.date||x.closedAt||"")+'</div><div class="total">'+money(x.total||0)+'</div></div>').join(""):'<div class="card empty">Todavía no hay repartos finalizados.</div>');
+}
+function debtsPage(m){
+  const unpaidOrders=orders.filter(o=>o.payment!=="Pagado");
+  const unpaidDebts=debts.filter(d=>!d.paid);
+  const orderTotal=unpaidOrders.reduce((s,o)=>s+Number(o.total||0),0);
+  const debtTotal=unpaidDebts.reduce((s,d)=>s+Number(d.total||d.amount||0),0);
+  m.innerHTML='<h2>💳 Deudas pendientes</h2><div class="card"><div class="muted">Pedidos sin cobrar</div><div class="total">'+money(orderTotal)+'</div><div class="muted">Deudas registradas</div><div class="total">'+money(debtTotal)+'</div></div><h3>Pedidos sin cobrar</h3>'+(unpaidOrders.length?unpaidOrders.map(o=>'<div class="card"><b>'+esc(o.name)+'</b><div class="muted">'+esc(o.address||"")+'</div><div class="between"><b>'+money(o.total)+'</b><button class="primary small" onclick="togglePaid(&quot;'+esc(o.id)+'&quot;)">Marcar pagado</button></div></div>').join(""):'<div class="card empty">No hay pedidos pendientes de cobro.</div>')+'<h3>Deudas registradas</h3>'+(unpaidDebts.length?unpaidDebts.map(d=>'<div class="card"><b>'+esc(d.name||d.client||"Cliente")+'</b><div>'+money(d.total||d.amount||0)+'</div></div>').join(""):'<div class="card empty">No hay deudas adicionales registradas.</div>');
+}
+function finalize(){
+  if(!orders.length){alert("No hay pedidos para finalizar.");return;}
+  if(!confirm("¿Finalizar este reparto y archivar un resumen?"))return;
+  const total=orders.reduce((s,o)=>s+Number(o.total||0),0);
+  history.push({id:"h"+Date.now(),date:new Date().toLocaleString("es-AR"),total,count:orders.length,orders:orders.map(o=>({...o,items:(o.items||[]).map(i=>({...i}))}))});
+  orders=[]; routeTemplates.forEach(r=>{r.stops=[];r.optimizedOrderIds=[];});
+  activeRouteId=null; save(); render(); alert("Reparto archivado en el historial.");
+}
+function pickClientContact(){
+  alert("La agenda de contactos todavía no está disponible en esta versión de prueba. Podés ingresar el teléfono manualmente.");
+}
+function exportBackup(){
+  const data={version:1,createdAt:new Date().toISOString(),orders,history,debts,clients,routeTemplates,activeRouteId,products:PRODUCTS};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="manos-verdes-backup.json";a.click();
+  URL.revokeObjectURL(url);
+}
+function importBackup(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(String(reader.result||""));
+      if(!data||typeof data!=="object")throw new Error("Formato inválido");
+      if(!confirm("La importación reemplazará los datos actuales. ¿Continuar?"))return;
+      orders=Array.isArray(data.orders)?data.orders:[];
+      history=Array.isArray(data.history)?data.history:[];
+      debts=Array.isArray(data.debts)?data.debts:[];
+      clients=Array.isArray(data.clients)?data.clients:[];
+      routeTemplates=Array.isArray(data.routeTemplates)?data.routeTemplates:[];
+      activeRouteId=data.activeRouteId??null;
+      save();render();alert("Copia de seguridad importada.");
+    }catch(e){alert("No se pudo importar la copia: "+e.message);}
+  };
+  reader.readAsText(file);
+}
+function backupPage(m){
+  m.innerHTML='<h2>💾 Copia de seguridad</h2><div class="card"><p>Exportá tus datos antes de probar una versión nueva.</p><div class="actions"><button class="primary" onclick="exportBackup()">Exportar copia JSON</button><label class="secondary small">Importar copia JSON<input type="file" accept="application/json,.json" onchange="importBackup(this.files[0])"></label></div></div>';
+}
+render();
+</script>
+</body>
+</html>
