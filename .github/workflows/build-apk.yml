@@ -6,14 +6,21 @@ on:
         description: "Identificador Android distinto del original"
         required: true
         default: "com.manosverdes.full"
+permissions:
+  contents: read
 jobs:
   rebuild:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
+      - name: Comprobar APK de entrada antes de instalar herramientas
+        run: |
+          if [ ! -s input/original.apk ]; then
+            echo "::error::Falta input/original.apk. Sin el APK original no se puede reconstruir el clon."
+            exit 2
+          fi
+          unzip -t input/original.apk
       - name: Instalar herramientas
         run: |
           sudo apt-get update
@@ -25,7 +32,6 @@ jobs:
           chmod +x scripts/rebuild-apk.sh
           ./scripts/rebuild-apk.sh input/original.apk out
       - name: Publicar APK como artefacto
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Manos-Verdes-Full-APK
