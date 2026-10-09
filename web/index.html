@@ -685,9 +685,9 @@ function routePage(m){
               </span>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
                 <b>${money(o.total)}</b>
-                ${o.phone ? `<button class="secondary small" onclick="wa('${String(o.phone).replace(/\D/g, "")}')">💬 WhatsApp</button>` : ""}
-              </div>
-            </div>
+                <button class="secondary small" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('${esc(o.address)}'),'_blank')">🗺️ Mapa</button>
+                ${o.phone ? `<button class="secondary small" onclick="wa('${String(o.phone).replace(/\\D/g, "")}')">💬 WhatsApp</button>` : ""}
+              </div>            </div>
           `).join("")
           : `<div class="empty">No hay pedidos pendientes para esta ruta.</div>`)
         : `<div class="empty">Cargá una ruta para ver sus paradas.</div>`
