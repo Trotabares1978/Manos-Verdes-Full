@@ -1,6 +1,6 @@
 {
   "appId": "ar.com.manosverdes.full",
-  "appName": "Manos Verdes Full",
+  "appName": "Manos Verdes",
   "webDir": "www",
   "server": {
     "androidScheme": "https"
