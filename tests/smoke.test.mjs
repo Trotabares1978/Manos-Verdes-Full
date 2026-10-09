@@ -12,6 +12,7 @@ test("incluye funciones principales de pedidos y rutas", () => {
 });
 test("incluye WhatsApp condicional en la lista de paradas", () => {
   assert.ok(html.includes("function wa("));
+  assert.ok(html.includes("google.com/maps/search/?api=1&query="));
   assert.match(html, /o\.phone\s*\?\s*`<button[^`]*WhatsApp<\/button>`\s*:\s*""/s);
 });
 test("identifica la app como Manos Verdes Full", () => {
