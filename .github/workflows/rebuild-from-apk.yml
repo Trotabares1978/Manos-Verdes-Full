@@ -1,0 +1,31 @@
+name: Reconstruir Manos Verdes Full desde APK
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "Motivo de la reconstrucción"
+        required: false
+        default: "Primera prueba de reconstrucción"
+jobs:
+  inspect-and-prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+      - name: Preparar herramientas Android
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apktool zip unzip openjdk-17-jdk
+          apktool --version
+          java -version
+      - name: Verificar archivos fuente y APK base
+        run: |
+          echo "Buscando APK original y recursos del proyecto..."
+          find . -maxdepth 5 -type f \( -iname '*.apk' -o -iname 'AndroidManifest.xml' -o -iname 'capacitor.config.*' -o -iname 'index.html' \) -print
+          if ! find . -type f -iname '*.apk' -print -quit | grep -q .; then
+            echo "::warning::Todavía no se subió la APK original al repositorio. Este flujo no puede reconstruir la app hasta que esté disponible."
+          fi
+      - name: Estado de preparación
+        run: |
+          echo "La reconstrucción requiere la APK original como archivo de entrada."
+          echo "No se genera ni publica una APK final si falta el archivo base."
