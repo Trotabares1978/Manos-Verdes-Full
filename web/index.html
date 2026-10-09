@@ -799,10 +799,10 @@ async function optimizeActiveRoute(){
 }
 
 function saveCurrentRoute(){
-    let pending = orders.filter(o => !o.delivered);
+    let pending = [...orders].sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"es",{sensitivity:"base"}));
 
     if(!pending.length){
-        alert("No hay pedidos pendientes para armar una ruta.");
+        alert("Todavía no hay pedidos cargados para armar una ruta.");
         return;
     }
 
@@ -827,7 +827,7 @@ function saveCurrentRoute(){
                         style="width:auto;margin-top:3px"
                     >
                     <span>
-                        <b>${esc(o.name)}</b><br>
+                        <b>${esc(o.name)}${o.delivered ? " · YA ENTREGADO" : ""}</b><br>
                         <span class="muted">📍 ${esc(o.address)}</span>
                     </span>
                 </label>
