@@ -596,56 +596,35 @@ async function locationPermission(){
 function routePage(m){
   const active=routeTemplates.find(r=>r.id===activeRouteId)||null;
   const routeOrders=active ? orders.filter(o=>(active.stops||[]).some(s=>
-    (s.orderId&&s.orderId===o.id) ||
-    (s.placeId&&o.placeId&&s.placeId===o.placeId) ||
+    (s.orderId&&s.orderId===o.id)||(s.placeId&&o.placeId&&s.placeId===o.placeId)||
     (!s.orderId&&String(s.name||"").toLowerCase()===String(o.name||"").toLowerCase()&&String(s.address||"").toLowerCase()===String(o.address||"").toLowerCase())
   )) : [];
-  if(active?.optimizedOrderIds?.length){
-    const pos=new Map(active.optimizedOrderIds.map((id,i)=>[id,i]));
-    routeOrders.sort((a,b)=>(pos.get(a.id)??999999)-(pos.get(b.id)??999999));
-  }
-  const pendingCount=routeOrders.filter(o=>!o.delivered).length;
-  const origin=active?.origin||"", destination=active?.destination||"";
+  if(active?.optimizedOrderIds?.length){const pos=new Map(active.optimizedOrderIds.map((id,i)=>[id,i]));routeOrders.sort((a,b)=>(pos.get(a.id)??999999)-(pos.get(b.id)??999999));}
+  const origin=active?.origin||"",destination=active?.destination||"";
+  const available=[...orders].sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"es",{sensitivity:"base"}));
   m.innerHTML=`
-    <div class="between" style="gap:8px;flex-wrap:wrap">
-      <h2>🗺️ Rutas y optimizador</h2>
-      <button class="primary small" onclick="saveCurrentRoute()">➕ Crear nueva ruta</button>
+    <div class="between" style="gap:8px;flex-wrap:wrap"><h2>🗺️ Rutas y optimizador</h2><button class="primary" onclick="saveCurrentRoute()">➕ Crear ruta nueva seleccionando pedidos</button></div>
+    <div class="card" style="border:2px solid #2d934f">
+      <h3 style="margin-top:0">➕ Armar una ruta nueva</h3>
+      <p>Acá tenés <b>todos tus pedidos</b>. Elegí los que querés agrupar en una ruta nueva, independientemente de las rutas que ya guardaste. Podés crear tantas rutas como necesites.</p>
+      <div class="muted">${available.length} pedidos en total · ${available.filter(o=>!o.delivered).length} pendientes de entrega</div>
+      <button class="primary" style="width:100%;margin-top:10px" onclick="saveCurrentRoute()">📋 Ver todos los pedidos y seleccionar para una nueva ruta</button>
     </div>
     <div class="card">
-      <div class="between">
-        <div><b>${active?"Ruta activa: "+esc(active.name):"Sin ruta activa"}</b>
-        <div class="muted">${active?pendingCount+" pedidos pendientes · "+routeOrders.filter(o=>o.delivered).length+" entregados":"Creá una ruta seleccionando los pedidos que querés incluir."}</div></div>
-        ${active?'<button class="secondary small" onclick="clearActiveRoute()">✖ Cerrar ruta</button>':""}
-      </div>
+      <div class="between"><div><b>${active?"Ruta activa: "+esc(active.name):"No hay una ruta activa cargada"}</b><div class="muted">${active?routeOrders.filter(o=>!o.delivered).length+" pendientes · "+routeOrders.filter(o=>o.delivered).length+" entregados":"Elegí una ruta guardada o creá una nueva arriba."}</div></div>${active?'<button class="secondary small" onclick="clearActiveRoute()">✖ Cerrar ruta</button>':""}</div>
       ${active?`
         <label>📍 Dirección inicial</label><input id="route-origin" value="${esc(origin)}" placeholder="Dirección de salida" autocomplete="off"><div id="route-origin-status" class="address-status"></div>
         <label>🏁 Punto de llegada</label><input id="route-destination" value="${esc(destination)}" placeholder="Dirección de llegada" autocomplete="off"><div id="route-destination-status" class="address-status"></div>
-        <div class="actions" style="margin-top:12px">
-          <button class="primary" onclick="optimizeActiveRoute()">🚀 Optimizar recorrido</button>
-          <button class="secondary" onclick="saveRouteEndpoints()">💾 Guardar inicio/llegada</button>
-          <button class="secondary" onclick="saveCurrentRoute()">➕ Crear otra ruta</button>
-        </div>
-        <div class="muted" style="margin-top:10px">Marcá cada parada al entregarla. Los pedidos entregados quedan tachados y se conservan en la ruta guardada.</div>
-      `:'<div class="empty">Usá «Crear nueva ruta» para seleccionar pedidos, ponerle un nombre y guardarla. Después cargala para optimizarla.</div>'}
+        <div class="actions"><button class="primary" onclick="optimizeActiveRoute()">🚀 Optimizar recorrido</button><button class="secondary" onclick="saveRouteEndpoints()">💾 Guardar inicio/llegada</button></div>
+      `:'<div class="empty">Al cargar una ruta guardada, acá aparecen sus paradas y el optimizador.</div>'}
     </div>
-    <div class="card">
-      <h3 style="margin-top:0">📂 Rutas guardadas</h3>
-      ${routeTemplates.length?routeTemplates.map(r=>`<div class="stock-row"><span><b>🚚 ${esc(r.name)}</b><br><small>${(r.stops||[]).length} paradas guardadas</small></span><div class="actions" style="margin-top:0"><button class="secondary small" onclick="loadRoute('${r.id}')">Cargar</button><button class="danger small" onclick="deleteRoute('${r.id}')">🗑️</button></div></div>`).join(""):'<div class="empty">Todavía no hay rutas guardadas.</div>'}
+    <div class="card"><h3 style="margin-top:0">📂 Rutas guardadas</h3>
+      ${routeTemplates.length?routeTemplates.map(r=>`<div class="stock-row"><span><b>🚚 ${esc(r.name)}</b><br><small>${(r.stops||[]).length} pedidos incluidos</small></span><div class="actions" style="margin-top:0"><button class="secondary small" onclick="loadRoute('${r.id}')">Cargar</button><button class="danger small" onclick="deleteRoute('${r.id}')">🗑️</button></div></div>`).join(""):'<div class="empty">Todavía no hay rutas guardadas.</div>'}
     </div>
-    <div class="card">
-      <h3 style="margin-top:0">${active?"📦 Paradas de la ruta":"📦 Pedidos disponibles"}</h3>
-      ${active?(routeOrders.length?routeOrders.map((o,i)=>`
-        <div class="stock-row" style="${o.delivered?'opacity:.7;background:#edf5ee;':''}">
-          <label style="display:flex;align-items:flex-start;gap:9px;flex:1;margin:0;min-width:0">
-            <input type="checkbox" ${o.delivered?'checked':''} onchange="toggleDelivered('${o.id}')" style="width:auto;margin-top:4px;flex-shrink:0">
-            <span style="${o.delivered?'text-decoration:line-through;':''}">
-              <b>${i+1}. ${esc(o.name)}</b><br><small>📍 ${esc(o.address)}</small><br><small>${o.delivered?'✅ ENTREGADO':'⬜ Pendiente de entrega'}</small>
-            </span>
-          </label>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0"><b>${money(o.total)}</b>
-          <button class="secondary small" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('${esc(o.address)}'),'_blank')">🗺️ Mapa</button>
-          ${o.phone?`<button class="secondary small" onclick="wa('${String(o.phone).replace(/\D/g,"")}')">💬 WhatsApp</button>`:""}</div>
-        </div>`).join(""):'<div class="empty">Esta ruta no tiene pedidos vinculados.</div>'):'<div class="empty">Creá una ruta para seleccionar sus paradas.</div>'}
+    <div class="card"><h3 style="margin-top:0">${active?"📦 Pedidos de la ruta activa":"📦 Vista de pedidos"}</h3>
+      ${active?(routeOrders.length?routeOrders.map((o,i)=>`<div class="stock-row" style="${o.delivered?'opacity:.7;background:#edf5ee;':''}">
+        <label style="display:flex;align-items:flex-start;gap:9px;flex:1;margin:0;min-width:0"><input type="checkbox" ${o.delivered?'checked':''} onchange="toggleDelivered('${o.id}')" style="width:auto;margin-top:4px;flex-shrink:0"><span style="${o.delivered?'text-decoration:line-through;':''}"><b>${i+1}. ${esc(o.name)}</b><br><small>📍 ${esc(o.address)}</small><br><small>${o.delivered?'✅ Entregado':'⬜ Pendiente de entrega'}</small></span></label>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b>${money(o.total)}</b><button class="secondary small" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('${esc(o.address)}'),'_blank')">🗺️ Mapa</button>${o.phone?`<button class="secondary small" onclick="wa('${String(o.phone).replace(/\D/g,"")}')">💬 WhatsApp</button>`:""}</div></div>`).join(""):'<div class="empty">Esta ruta no tiene pedidos vinculados.</div>'):'<div class="empty">Cargá una ruta guardada para ver sus paradas.</div>'}
     </div>
     <div class="card"><div class="actions"><button class="primary" onclick="locationPermission()">📍 Probar GPS</button>${active?'<button class="secondary" onclick="reoptimizeActiveRoute()">🔄 Reoptimizar pendientes</button>':""}</div></div>
   `;
