@@ -9,7 +9,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
 .app{max-width:760px;margin:auto;min-height:100vh}.top{background:linear-gradient(135deg,#155f35,#2f9650);color:#fff;padding:14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px #0002}
 .brand{display:flex;align-items:center;gap:11px}.brand img{width:52px;height:52px;border-radius:13px;object-fit:cover}.brand h1{font-size:20px;margin:0}.sub{font-size:12px;opacity:.88}
-nav{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:12px}nav button{border:0;border-radius:10px;padding:9px 2px;background:#ffffff22;color:#fff;font-weight:800;font-size:11px}nav button.active{background:#fff;color:var(--g)}
+nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:12px}nav button{border:0;border-radius:10px;padding:9px 2px;background:#ffffff22;color:#fff;font-weight:800;font-size:11px}nav button.active{background:#fff;color:var(--g)}
 main{padding:14px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #174b2310}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left}.tile b{display:block;font-size:23px}.tile span{color:var(--muted);font-size:13px}
 h2{font-size:20px;margin:4px 0 12px}.muted{color:var(--muted);font-size:13px}.between{display:flex;justify-content:space-between;align-items:center;gap:10px}.total{font-size:28px;font-weight:900;margin:12px 0}.badge{background:#e4f4e9;color:var(--g);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
 button.primary,button.secondary,button.danger{border:0;border-radius:11px;padding:12px 14px;font-weight:800}.primary{background:var(--g);color:#fff}.secondary{background:#edf4ef;color:var(--g)}.danger{background:#fbe9e7;color:var(--red)}.small{padding:8px 10px!important;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -1083,7 +1083,17 @@ function importBackup(file){
   reader.readAsText(file);
 }
 function backupPage(m){
-  m.innerHTML='<h2>💾 Copia de seguridad</h2><div class="card"><p>Exportá tus datos antes de probar una versión nueva.</p><div class="actions"><button class="primary" onclick="exportBackup()">Exportar copia JSON</button><label class="secondary small">Importar copia JSON<input type="file" accept="application/json,.json" onchange="importBackup(this.files[0])"></label></div></div>';
+  m.innerHTML=`
+    <h2>💾 Copia de seguridad</h2>
+    <div class="card">
+      <p>Podés cargar la copia que ya tenés del reparto para probar esta versión con tus pedidos reales.</p>
+      <div class="actions">
+        <button type="button" class="primary" onclick="document.getElementById('backup-file').click()">📂 Cargar copia de seguridad</button>
+        <button type="button" class="secondary" onclick="exportBackup()">💾 Exportar copia JSON</button>
+      </div>
+      <input id="backup-file" type="file" accept=".json,application/json,.txt,text/plain" style="display:none" onchange="if(this.files&&this.files[0])importBackup(this.files[0]);this.value=''">
+      <p class="muted">La importación reemplaza los datos de esta instalación. Conservá tu copia original y confirmá cuando la aplicación te lo pregunte.</p>
+    </div>`;
 }
 render();
 </script>
