@@ -22,7 +22,7 @@ input,select,textarea{width:100%;border:1px solid #cfdad2;border-radius:10px;pad
 <body>
 <div class="app">
 <header class="top">
- <div class="brand"><img src="icon.png"><div><h1>Manos Verdes Full</h1><div class="sub">Pedidos · Stock · Ruta · Reparto</div></div></div>
+ <div class="brand"><img src="icon.svg"><div><h1>Manos Verdes Full</h1><div class="sub">Pedidos · Stock · Ruta · Reparto</div></div></div>
  <nav id="nav"></nav>
 </header>
 <main id="main"></main>
@@ -586,7 +586,14 @@ function deleteOrder(id){
 }
 function wa(phone){let n=phone.replace(/\D/g,"");if(n.startsWith("0"))n="54"+n.slice(1);if(!n.startsWith("54"))n="54"+n;location.href="https://wa.me/"+n}
 function stockPage(m){let need={};orders.forEach(o=>o.items.forEach(i=>{if(PROMO_STOCK[i.id])Object.entries(PROMO_STOCK[i.id]).forEach(([k,v])=>need[k]=(need[k]||0)+i.qty*v);else need[i.id]=(need[i.id]||0)+i.qty}));let rows=Object.entries(need).filter(x=>PHYSICAL[x[0]]);m.innerHTML=`<h2>Stock necesario</h2><div class="card">${rows.length?rows.map(x=>`<div class="stock-row"><span>${PHYSICAL[x[0]]}</span><b>${x[1]}</b></div>`).join(""):`<div class="empty">Todavía no hay pedidos.</div>`}</div><div class="card"><b>Promociones = productos físicos</b><div class="muted">Promo 1-2-fruta → Nº1 + Nº2 + fruta. Los 3 de verdura → Nº1 + Nº2 + Nº3. Los 4 bolsones → Nº1 + Nº2 + Nº3 + fruta.</div></div>`}
-async function locationPermission(){try{let p=await window.RuteroideGeo.getCurrentPosition();alert("Ubicación obtenida correctamente.\\nLatitud: "+p.coords.latitude.toFixed(6)+"\\nLongitud: "+p.coords.longitude.toFixed(6))}catch(e){alert(window.RuteroideGeo.getErrorMessage(e))}}
+async function locationPermission(){
+  if(!navigator.geolocation){alert("Este dispositivo no ofrece geolocalización en el navegador.");return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>alert("Ubicación obtenida correctamente.\\nLatitud: "+p.coords.latitude.toFixed(6)+"\\nLongitud: "+p.coords.longitude.toFixed(6)),
+    e=>alert("No se pudo obtener la ubicación. Revisá los permisos de ubicación y volvé a intentar. ("+e.message+")"),
+    {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+  );
+}
 function routePage(m){
   let pending = orders.filter(o => !o.delivered);
   let active = routeTemplates.find(r => r.id === activeRouteId) || null;
