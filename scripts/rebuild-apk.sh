@@ -74,6 +74,8 @@ keytool -genkeypair -noprompt -keystore "$OUT_DIR/test-keystore.jks" -storepass 
 jarsigner -keystore "$OUT_DIR/test-keystore.jks" -storepass changeit -keypass changeit \
   -signedjar "$OUT_DIR/Manos-Verdes-Full.apk" "$OUT_DIR/Manos-Verdes-Full-unsigned.apk" mvfull
 jarsigner -verify "$OUT_DIR/Manos-Verdes-Full.apk"
+python3 scripts/align-apk-resources.py "$OUT_DIR/Manos-Verdes-Full.apk"
+jarsigner -verify "$OUT_DIR/Manos-Verdes-Full.apk"
 unzip -p "$OUT_DIR/Manos-Verdes-Full.apk" assets/public/index.html | grep -q 'aria-label="WhatsApp"' || {
   echo "::error::No se detectó el botón WhatsApp en el APK resultante."; exit 5;
 }
