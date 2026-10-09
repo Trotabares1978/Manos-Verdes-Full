@@ -1,0 +1,34 @@
+name: Compilar Manos Verdes Full
+on:
+  workflow_dispatch:
+    inputs:
+      package_id:
+        description: "Identificador Android distinto del original"
+        required: true
+        default: "com.manosverdes.full"
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+      - name: Instalar herramientas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apktool zip unzip openjdk-17-jdk python3
+      - name: Reconstruir APK
+        env:
+          PACKAGE_ID: ${{ inputs.package_id }}
+        run: |
+          chmod +x scripts/rebuild-apk.sh
+          ./scripts/rebuild-apk.sh input/original.apk out
+      - name: Publicar APK como artefacto
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Manos-Verdes-Full-APK
+          path: out/Manos-Verdes-Full.apk
+          if-no-files-found: error
+          retention-days: 14
