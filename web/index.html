@@ -624,7 +624,7 @@ function routePage(m){
     <div class="card"><h3 style="margin-top:0">${active?"📦 Pedidos de la ruta activa":"📦 Vista de pedidos"}</h3>
       ${active?(routeOrders.length?routeOrders.map((o,i)=>`<div class="stock-row" style="${o.delivered?'opacity:.7;background:#edf5ee;':''}">
         <label style="display:flex;align-items:flex-start;gap:9px;flex:1;margin:0;min-width:0"><input type="checkbox" ${o.delivered?'checked':''} onchange="toggleDelivered('${o.id}')" style="width:auto;margin-top:4px;flex-shrink:0"><span style="${o.delivered?'text-decoration:line-through;':''}"><b>${i+1}. ${esc(o.name)}</b><br><small>📍 ${esc(o.address)}</small><br><small>${o.delivered?'✅ Entregado':'⬜ Pendiente de entrega'}</small></span></label>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b>${money(o.total)}</b><button class="secondary small" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('${esc(o.address)}'),'_blank')">🗺️ Mapa</button>${o.phone?`<button class="secondary small" onclick="wa('${String(o.phone).replace(/\D/g,"")}')">💬 WhatsApp</button>`:""}</div></div>`).join(""):'<div class="empty">Esta ruta no tiene pedidos vinculados.</div>'):'<div class="empty">Cargá una ruta guardada para ver sus paradas.</div>'}
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b>${money(o.total)}</b><button class="secondary small" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('${esc(o.address)}'),'_blank')">🗺️ Mapa</button>${o.phone?`<button class="secondary small" onclick="wa('${String(o.phone).replace(/\D/g,"")}')">💬 WhatsApp</button>`:""}<button class="danger small" onclick="removeStopFromRoute('${active.id}','${o.id}')">✖ Quitar de esta ruta</button></div></div>`).join(""):'<div class="empty">Esta ruta no tiene pedidos vinculados.</div>'):'<div class="empty">Cargá una ruta guardada para ver sus paradas.</div>'}
     </div>
     <div class="card"><div class="actions"><button class="primary" onclick="locationPermission()">📍 Probar GPS</button>${active?'<button class="secondary" onclick="reoptimizeActiveRoute()">🔄 Reoptimizar pendientes</button>':""}</div></div>
   `;
@@ -920,6 +920,19 @@ function confirmSaveRoute(){
     );
 }
 
+function removeStopFromRoute(routeId, orderId){
+  const route=routeTemplates.find(r=>r.id===routeId);
+  const order=orders.find(o=>o.id===orderId);
+  if(!route||!order)return;
+  if(!confirm('¿Quitar el pedido de '+order.name+' de la ruta "'+route.name+'"? El pedido seguirá guardado y podrá agregarse a otra ruta.'))return;
+  route.stops=(route.stops||[]).filter(stop=>{
+    if(stop.orderId)return stop.orderId!==orderId;
+    return !(String(stop.name||"").toLowerCase()===String(order.name||"").toLowerCase() && String(stop.address||"").toLowerCase()===String(order.address||"").toLowerCase());
+  });
+  if(route.optimizedOrderIds)route.optimizedOrderIds=route.optimizedOrderIds.filter(id=>id!==orderId);
+  save();
+  render();
+}
 function loadRoute(id){
   const route=routeTemplates.find(r=>r.id===id);
   if(!route)return;
