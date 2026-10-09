@@ -73,6 +73,18 @@ jobs:
           done
           mkdir -p android/app/src/main/res/drawable
           convert web/icon.svg -background "#176b3a" -alpha remove -alpha off -resize 432x432! android/app/src/main/res/drawable/ic_launcher_foreground.png
+          # Recrear también los recursos adaptive DESPUÉS de cap sync: Android 8+ usa estos XML.
+          mkdir -p android/app/src/main/res/values android/app/src/main/res/mipmap-anydpi-v26
+          cat > android/app/src/main/res/values/ic_launcher_background.xml <<'EOF'
+          <resources><color name="ic_launcher_background">#176b3a</color></resources>
+          EOF
+          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/ic_launcher_background"/>
+            <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+          cp android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           # Confirmar que el manifiesto usa el recurso que acabamos de generar.
           grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
       - name: Compilar APK de depuración
