@@ -683,7 +683,10 @@ function routePage(m){
                 <b>${i + 1}. ${esc(o.name)}</b><br>
                 <small>📍 ${esc(o.address)}</small>
               </span>
-              <b>${money(o.total)}</b>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <b>${money(o.total)}</b>
+                ${o.phone ? `<button class="secondary small" onclick="wa(\'${esc(o.phone)}\')">💬 WhatsApp</button>` : ""}
+              </div>
             </div>
           `).join("")
           : `<div class="empty">No hay pedidos pendientes para esta ruta.</div>`)
