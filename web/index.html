@@ -1068,16 +1068,59 @@ function importBackup(file){
   const reader=new FileReader();
   reader.onload=()=>{
     try{
-      const data=JSON.parse(String(reader.result||""));
-      if(!data||typeof data!=="object")throw new Error("Formato inválido");
-      if(!confirm("La importación reemplazará los datos actuales. ¿Continuar?"))return;
-      orders=Array.isArray(data.orders)?data.orders:(Array.isArray(data.mvi_orders)?data.mvi_orders:[]);
-      history=Array.isArray(data.history)?data.history:(Array.isArray(data.mvi_history)?data.mvi_history:[]);
-      debts=Array.isArray(data.debts)?data.debts:(Array.isArray(data.mvi_debts)?data.mvi_debts:[]);
-      clients=Array.isArray(data.clients)?data.clients:(Array.isArray(data.mvi_clients)?data.mvi_clients:[]);
-      routeTemplates=Array.isArray(data.routeTemplates)?data.routeTemplates:(Array.isArray(data.mvi_route_templates)?data.mvi_route_templates:[]);
-      activeRouteId=data.activeRouteId??data.mvi_active_route??null;
-      save();render();alert("Copia de seguridad importada.");
+      const raw=String(reader.result||"").replace(/^\\uFEFF/,"").trim();
+      let data, recovered=false;
+      try{data=JSON.parse(raw);}
+      catch(parseError){
+        // Algunas copias antiguas terminan con texto duplicado tras un objeto JSON completo.
+        // Recuperar únicamente el primer objeto íntegro, nunca datos parciales.
+        let depth=0, quoted=false, escaped=false, finish=-1, begun=false;
+        for(let i=0;i<raw.length;i++){
+          const ch=raw[i];
+          if(quoted){
+            if(escaped)escaped=false;
+            else if(ch==="\\\\")escaped=true;
+            else if(ch==='"')quoted=false;
+            continue;
+          }
+          if(ch==='"'){quoted=true;continue;}
+          if(ch==="{"||ch==="["){depth++;begun=true;}
+          else if(ch==="}"||ch==="]"){
+            depth--;
+            if(begun&&depth===0){finish=i+1;break;}
+            if(depth<0)break;
+          }
+        }
+        if(finish<0)throw new Error("El archivo no contiene un bloque JSON completo. Conservá el original.");
+        data=JSON.parse(raw.slice(0,finish));
+        recovered=raw.slice(finish).trim().length>0;
+      }
+      if(!data||typeof data!=="object"||Array.isArray(data))throw new Error("Formato de copia inválido");
+      // Copias de Manos Verdes Integral guardan cada colección dentro de storage y como texto JSON.
+      const source=data.storage&&typeof data.storage==="object"?data.storage:data;
+      const readValue=(keys,fallback)=>{
+        for(const key of keys){
+          if(source[key]!==undefined){
+            const value=source[key];
+            if(typeof value==="string"){
+              try{return JSON.parse(value);}catch(e){throw new Error("La sección "+key+" de la copia está incompleta.");}
+            }
+            return value;
+          }
+        }
+        return fallback;
+      };
+      const nextOrders=readValue(["orders","mvi_orders"],[]);
+      const nextHistory=readValue(["history","mvi_history"],[]);
+      const nextDebts=readValue(["debts","mvi_debts"],[]);
+      const nextClients=readValue(["clients","mvi_clients"],[]);
+      const nextRoutes=readValue(["routeTemplates","mvi_route_templates"],[]);
+      const nextActive=readValue(["activeRouteId","mvi_active_route"],null);
+      if(!Array.isArray(nextOrders)||!Array.isArray(nextHistory)||!Array.isArray(nextDebts)||!Array.isArray(nextClients)||!Array.isArray(nextRoutes))throw new Error("La estructura de la copia no coincide con los datos esperados.");
+      if(!confirm("Se encontraron "+nextOrders.length+" pedidos, "+nextClients.length+" clientes y "+nextRoutes.length+" rutas. La importación reemplazará los datos actuales de esta instalación. ¿Continuar?"))return;
+      orders=nextOrders;history=nextHistory;debts=nextDebts;clients=nextClients;routeTemplates=nextRoutes;activeRouteId=nextActive;
+      save();render();
+      alert("Copia importada correctamente.\\nPedidos: "+orders.length+"\\nClientes: "+clients.length+"\\nRutas: "+routeTemplates.length+(recovered?"\\n\\nAviso: el archivo tenía texto extra al final. Se recuperó el bloque JSON completo y se ignoró ese texto. Conservá el archivo original.":""));
     }catch(e){alert("No se pudo importar la copia: "+e.message);}
   };
   reader.readAsText(file);
