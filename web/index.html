@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Manos Verdes Integral</title>
+<style>
+:root{--g:#176b3a;--g2:#2d934f;--cream:#f6f1e5;--ink:#183326;--muted:#68776e;--line:#dce5de;--white:#fff;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+.app{max-width:760px;margin:auto;min-height:100vh}.top{background:linear-gradient(135deg,#155f35,#2f9650);color:#fff;padding:14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px #0002}
+.brand{display:flex;align-items:center;gap:11px}.brand img{width:52px;height:52px;border-radius:13px;object-fit:cover}.brand h1{font-size:20px;margin:0}.sub{font-size:12px;opacity:.88}
+nav{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:12px}nav button{border:0;border-radius:10px;padding:9px 2px;background:#ffffff22;color:#fff;font-weight:800;font-size:11px}nav button.active{background:#fff;color:var(--g)}
+main{padding:14px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #174b2310}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left}.tile b{display:block;font-size:23px}.tile span{color:var(--muted);font-size:13px}
+h2{font-size:20px;margin:4px 0 12px}.muted{color:var(--muted);font-size:13px}.between{display:flex;justify-content:space-between;align-items:center;gap:10px}.total{font-size:28px;font-weight:900;margin:12px 0}.badge{background:#e4f4e9;color:var(--g);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
+button.primary,button.secondary,button.danger{border:0;border-radius:11px;padding:12px 14px;font-weight:800}.primary{background:var(--g);color:#fff}.secondary{background:#edf4ef;color:var(--g)}.danger{background:#fbe9e7;color:var(--red)}.small{padding:8px 10px!important;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+input,select,textarea{width:100%;border:1px solid #cfdad2;border-radius:10px;padding:11px;background:#fff;font:inherit}.address-wrap{position:relative}.address-status{font-size:12px;margin-top:6px}.address-ok{color:var(--g)}.address-warn{color:#9a6700}.address-error{color:var(--red)}gmp-place-autocomplete{display:block;width:100%}textarea{min-height:70px}label{display:block;font-size:12px;font-weight:800;margin:10px 0 5px}
+.product{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:10px 0}.qty{display:flex;align-items:center;gap:7px}.qty button{width:34px;height:34px;border:0;border-radius:9px;background:#e8f2eb;color:var(--g);font-size:18px;font-weight:900}
+.order{border-top:1px solid var(--line);padding:12px 0}.stock-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.empty{text-align:center;color:var(--muted);padding:24px}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:50}.modal.open{display:flex}.sheet{background:#fff;width:min(760px,100%);border-radius:20px 20px 0 0;padding:18px;max-height:90vh;overflow:auto}@media(min-width:600px){.modal{align-items:center}.sheet{border-radius:20px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+ <div class="brand"><img src="icon.png"><div><h1>Manos Verdes Integral</h1><div class="sub">Pedidos · Stock · Ruta · Reparto</div></div></div>
+ <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+</div>
+<div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
+<script src="geo-bridge.bundle.js"></script>
+<script>
+// Google Maps / Places: reutilizamos la misma clave que ya funciona en Ruteroide.
+const GOOGLE_MAPS_API_KEY = "AIzaSyBYY5lur071mAPKo75CbhLCCfo8yIwXFrc";
+let googlePlacesReady = false;
+let googlePlacesLoading = null;
+
+// Google Maps llama a esta función mediante callback cuando la API terminó de cargar.
+// Es el mismo mecanismo que usa Ruteroide y es más fiable en el WebView de Android.
+window.initManosVerdesMaps = function(){
+  googlePlacesReady=!!window.google?.maps?.places;
+  if(googlePlacesReady){
+    document.dispatchEvent(new Event('mvi-google-ready'));
+  }
+};
+
+function loadGooglePlaces(){
+  if(googlePlacesReady && window.google?.maps?.places) return Promise.resolve(true);
+  if(googlePlacesLoading) return googlePlacesLoading;
+
+  googlePlacesLoading=new Promise((resolve)=>{
+    const finish=(ok)=>{
+      googlePlacesReady=!!ok && !!window.google?.maps?.places;
+      resolve(googlePlacesReady);
+    };
+
+    document.addEventListener('mvi-google-ready',()=>finish(true),{once:true});
+
+    if(window.google?.maps?.places){
+      finish(true);
+      return;
+    }
+
+    const script=document.createElement('script');
+    script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(GOOGLE_MAPS_API_KEY)+'&libraries=places,geometry&callback=initManosVerdesMaps';
+    script.async=true;
+    script.defer=true;
+    script.dataset.googleMaps='mvi';
+    script.onerror=()=>finish(false);
+    document.head.appendChild(script);
+
+    // Si Google rechaza la clave/API, no dejamos la promesa colgada indefinidamente.
+    setTimeout(()=>{
+      if(!googlePlacesReady) finish(false);
+    },10000);
+  });
+  return googlePlacesLoading;
+}
+
+async function setupAddressAutocomplete(existingAddress="", existingLat=null, existingLng=null, existingPlaceId=""){
+  const input=document.getElementById('f-address');
+  const status=document.getElementById('address-status');
+  if(!input) return;
+
+  input.value=existingAddress||'';
+  input.dataset.lat=existingLat!=null?existingLat:'';
+  input.dataset.lng=existingLng!=null?existingLng:'';
+  input.dataset.placeId=existingPlaceId||'';
+  document.getElementById('f-address-lat').value=existingLat!=null?existingLat:'';
+  document.getElementById('f-address-lng').value=existingLng!=null?existingLng:'';
+  document.getElementById('f-address-place-id').value=existingPlaceId||'';
+
+  const ready=await loadGooglePlaces();
+  if(!ready){
+    status.className='address-status address-warn';
+    status.textContent='Google Maps no pudo cargarse. Podés escribir la dirección manualmente.';
+    return;
+  }
+
+  try{
+    const options={
+      componentRestrictions:{country:'ar'},
+      fields:['formatted_address','geometry','place_id','name']
+    };
+    const autocomplete=new google.maps.places.Autocomplete(input,options);
+
+    autocomplete.addListener('place_changed',()=>{
+      const place=autocomplete.getPlace();
+      if(place && place.formatted_address){
+        input.value=place.formatted_address;
+        input.dataset.lat=place.geometry?.location?.lat?.() ?? '';
+        input.dataset.lng=place.geometry?.location?.lng?.() ?? '';
+        input.dataset.placeId=place.place_id||'';
+        document.getElementById('f-address-lat').value=input.dataset.lat;
+        document.getElementById('f-address-lng').value=input.dataset.lng;
+        document.getElementById('f-address-place-id').value=input.dataset.placeId;
+        status.className='address-status address-ok';
+        status.textContent='📍 Dirección confirmada por Google Maps.';
+      }else{
+        input.dataset.lat='';
+        input.dataset.lng='';
+        input.dataset.placeId='';
+        status.className='address-status address-warn';
+        status.textContent='Elegí una sugerencia de Google para guardar la ubicación exacta.';
+      }
+    });
+
+    input.addEventListener('input',()=>{
+      // Si el usuario modifica una dirección después de seleccionarla,
+      // ya no conservamos las coordenadas anteriores.
+      input.dataset.lat='';
+      input.dataset.lng='';
+      input.dataset.placeId='';
+      document.getElementById('f-address-lat').value='';
+      document.getElementById('f-address-lng').value='';
+      document.getElementById('f-address-place-id').value='';
+      status.className='address-status address-warn';
+      status.textContent='Elegí una sugerencia de Google para confirmar la dirección.';
+    });
+
+    status.className='address-status '+(existingLat!=null&&existingLng!=null?'address-ok':'address-warn');
+    status.textContent=existingLat!=null&&existingLng!=null
+      ? '📍 Dirección guardada con ubicación.'
+      : 'Escribí y elegí una sugerencia de Google Maps.';
+  }catch(err){
+    status.className='address-status address-error';
+    status.textContent='No se pudo activar la búsqueda de Google Maps. Podés escribir la dirección manualmente.';
+  }
+}
+
+function preserveOrderForm(){
+  const data={};
+  const ids=['f-name','f-address','f-phone','f-payment'];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)data[id]=el.value;
+  });
+  const address=document.getElementById('f-address');
+  if(address){
+    data['f-address-lat']=address.dataset.lat||'';
+    data['f-address-lng']=address.dataset.lng||'';
+    data['f-address-place-id']=address.dataset.placeId||'';
+  }
+  return data;
+}
+
+const PRODUCTS=[
+["Bolsón n°1",12000,"n1"],["Bolsón n°2",10000,"n2"],["Bolsón n°3",15000,"n3"],["Bolsón de frutas",10000,"fruta"],
+["Miel",8000,"miel"],["Huevos comunes",7000,"hcom"],["Huevos comunes x 2",13000,"hcom2"],["Huevos Caseros",10000,"hcas"],["Huevos Agroecológicos",12000,"hagr"],
+["Cremoso Cremac x 2kg",18000,"cc2"],["Cremoso Cremac x 4kg",36000,"cc4"],["Sardo Fresco x 1,5kg",18000,"sf15"],["Sardo Fresco x 3kg",36000,"sf3"],["Sardo Cremac x 1,8kg",36000,"sc18"],
+["Promo 1-2-Fruta",31000,"promo12f"],["Promo Los 3 de verdura",35000,"promo3v"],["Promo Los 4 bolsones",45000,"promo4"]];
+const PROMO_STOCK={promo12f:{n1:1,n2:1,fruta:1},promo3v:{n1:1,n2:1,n3:1},promo4:{n1:1,n2:1,n3:1,fruta:1}};
+const PHYSICAL={n1:"Bolsón n°1",n2:"Bolsón n°2",n3:"Bolsón n°3",fruta:"Bolsón de frutas",miel:"Miel",hcom:"Huevos comunes",hcom2:"Huevos comunes x 2",hcas:"Huevos Caseros",hagr:"Huevos Agroecológicos",cc2:"Cremoso Cremac x 2kg",cc4:"Cremoso Cremac x 4kg",sf15:"Sardo Fresco x 1,5kg",sf3:"Sardo Fresco x 3kg",sc18:"Sardo Cremac x 1,8kg"};
+let orders=load("mvi_orders",[]), history=load("mvi_history",[]), debts=load("mvi_debts",[]), clients=load("mvi_clients",[]), routeTemplates=load("mvi_route_templates",[]), activeRouteId=load("mvi_active_route",null), page="inicio", cart=[], editing=null;
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+function save(){
+  localStorage.setItem("mvi_orders",JSON.stringify(orders));
+  localStorage.setItem("mvi_history",JSON.stringify(history));
+  localStorage.setItem("mvi_debts",JSON.stringify(debts));
+  localStorage.setItem("mvi_clients",JSON.stringify(clients));
+  localStorage.setItem("mvi_route_templates",JSON.stringify(routeTemplates));
+  localStorage.setItem("mvi_active_route",JSON.stringify(activeRouteId));
+}
+function money(n){return "$"+Number(n||0).toLocaleString("es-AR")}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function nav(){
+  let a=[
+    ["inicio","🏠 Inicio"],
+    ["pedidos","🛒 Pedidos"],
+    ["ruta","🗺️ Ruta"],
+    ["stock","📦 Stock"],
+    ["historial","📚 Historial"],
+    ["deudas","💳 Deudas"]
+  ];
+  document.getElementById("nav").innerHTML=a.map(x=>`<button class="${page==x[0]?"active":""}" onclick="go('${x[0]}')">${x[1]}</button>`).join("");
+}
+function go(x){page=x;render();scrollTo(0,0)}
+function render(){
+  nav();
+  let m=document.getElementById("main");
+  if(page=="inicio")home(m);
+  if(page=="pedidos")ordersPage(m);
+  if(page=="ruta")routePage(m);
+  if(page=="stock")stockPage(m);
+  if(page=="historial")historyPage(m);
+  if(page=="deudas")debtsPage(m);
+}
+function home(m){
+  let p=orders.filter(o=>!o.delivered).length;
+  let t=orders.reduce((s,o)=>s+o.total,0);
+  let r=routeTemplates.length;
+
+  m.innerHTML=`
+    <div class="card">
+      <div class="between">
+        <div>
+          <h2>Reparto actual</h2>
+          <div class="muted">Pedidos cargados</div>
+        </div>
+        <span class="badge">${p} pendientes de entrega</span>
+      </div>
+
+      <div class="total">${money(t)}</div>
+
+      <div class="actions">
+        <button class="primary" onclick="newOrder()">➕ Nuevo pedido</button>
+        <button class="secondary" onclick="go('ruta')">🗺️ Preparar ruta</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <button class="tile" onclick="go('pedidos')">
+        <b>🛒</b><span>Pedidos</span>
+      </button>
+
+      <button class="tile" onclick="go('stock')">
+        <b>📦</b><span>Stock</span>
+      </button>
+
+      <button class="tile" onclick="locationPermission()">
+        <b>📍</b><span>Probar ubicación</span>
+      </button>
+
+      <button class="tile" onclick="go('historial')">
+        <b>📚</b><span>Historial</span>
+      </button>
+
+      <button class="tile" onclick="go('ruta')">
+        <b>🗺️</b><span>Rutas guardadas: ${r}</span>
+      </button>
+
+      <button class="tile" onclick="go('deudas')">
+        <b>💳</b><span>Deudas: ${debts.filter(d=>!d.paid).length}</span>
+      </button>
+    </div>
+  `;
+}
+function ordersPage(m){
+  let a=[...orders].sort((x,y)=>String(x.name||"").localeCompare(String(y.name||""),"es",{sensitivity:"base"}));
+
+  m.innerHTML=`
+    <div class="between">
+      <h2>Pedidos</h2>
+      <button class="primary" onclick="newOrder()">➕ Nuevo</button>
+    </div>
+
+    ${a.length ? a.map(o=>`
+      <div class="card order">
+        <div class="between">
+          <div>
+            <b>${esc(o.name)}</b>
+            <div class="muted">📍 ${esc(o.address)}</div>
+          </div>
+          <b>${money(o.total)}</b>
+        </div>
+
+        <div class="muted" style="margin:7px 0">
+          ${o.items.map(i=>`${i.qty} × ${esc(i.name)}`).join(" · ")}
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+          <span class="badge" style="${o.payment==="Pagado" ? "" : "background:#fff3cd;color:#856404"}">
+            💰 ${o.payment==="Pagado" ? "Pagado" : "Pago pendiente"}
+          </span>
+
+          <span class="badge" style="${o.delivered ? "" : "background:#fff3cd;color:#856404"}">
+            🚚 ${o.delivered ? "Entregado" : "Pendiente de entrega"}
+          </span>
+        </div>
+
+        <div class="actions">
+          <button
+            class="${o.payment==="Pagado" ? "secondary" : "primary"} small"
+            onclick="togglePaid('${o.id}')">
+            ${o.payment==="Pagado" ? "↩️ Marcar pendiente" : "💰 Marcar pagado"}
+          </button>
+
+          <button
+            class="${o.delivered ? "secondary" : "primary"} small"
+            onclick="toggleDelivered('${o.id}')">
+            ${o.delivered ? "↩️ Marcar pendiente" : "🚚 Marcar entregado"}
+          </button>
+
+          <button class="secondary small" onclick="editOrder('${o.id}')">
+            ✏️ Editar
+          </button>
+
+          ${o.phone ? `<button class="secondary small" onclick="wa('${o.phone}')">💬 WhatsApp</button>` : ""}
+
+          <button
+            class="danger small"
+            title="Eliminar pedido"
+            onclick="deleteOrder('${o.id}')">
+            ✕ Eliminar
+          </button>
+        </div>
+      </div>
+    `).join("") : `
+      <div class="card empty">Todavía no hay pedidos.</div>
+    `}
+
+    <div class="card">
+      <button class="danger" onclick="finalize()">🏁 Finalizar reparto</button>
+    </div>
+  `;
+}
+
+function newOrder(){cart=[];editing=null;openOrder()}
+function editOrder(id){editing=orders.find(o=>o.id==id);if(!editing)return;cart=editing.items.map(i=>({...i}));openOrder()}
+function openOrder(preserved=null){
+  const total=cart.reduce((s,i)=>s+i.qty*i.price,0);
+  const saved=preserved || {
+    'f-name':editing?.name||'',
+    'f-address':editing?.address||'',
+    'f-phone':editing?.phone||'',
+    'f-payment':editing?.payment||'Pendiente',
+    'f-address-lat':editing?.lat ?? '',
+    'f-address-lng':editing?.lng ?? '',
+    'f-address-place-id':editing?.placeId || ''
+  };
+
+  document.getElementById('sheet').innerHTML=`
+    <h2>${editing?'Editar pedido':'Nuevo pedido'}</h2>
+    <label>Nombre *</label>
+    <input id="f-name" value="${esc(saved['f-name']||'')}">
+
+    <label>Dirección *</label>
+    <div class="address-wrap">
+      <input id="f-address" value="${esc(saved['f-address']||'')}" placeholder="Escribí la dirección y elegí una sugerencia de Google Maps" autocomplete="off">
+      <div class="actions" style="margin-top:8px">
+        <button type="button" class="secondary small" onclick="saveClientFromForm()">💾 Guardar cliente y dirección</button>
+        <button type="button" class="secondary small" onclick="showClientPicker()">👤 Añadir cliente</button>
+      </div>
+      <input id="f-address-lat" type="hidden" value="${esc(saved['f-address-lat']||'')}">
+      <input id="f-address-lng" type="hidden" value="${esc(saved['f-address-lng']||'')}">
+      <input id="f-address-place-id" type="hidden" value="${esc(saved['f-address-place-id']||'')}">
+      <div id="address-status" class="address-status"></div>
+    </div>
+
+    <label>Teléfono</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="f-phone" value="${esc(saved['f-phone']||'')}" style="flex:1">
+      <button type="button" id="btnPickContact" class="secondary small"
+        onclick="pickClientContact()"
+        style="white-space:nowrap"
+        title="Elegir un contacto de la agenda">
+        📱 Agenda
+      </button>
+    </div>
+
+    <label>Pago</label>
+    <select id="f-payment"><option ${saved['f-payment']!='Pagado'?'selected':''}>Pendiente</option><option ${saved['f-payment']=='Pagado'?'selected':''}>Pagado</option></select>
+
+    <h3>Productos</h3>
+    ${PRODUCTS.map(p=>{let q=cart.find(i=>i.id==p[2])?.qty||0;return `<div class="product"><div><b>${p[0]}</b><div class="muted">${money(p[1])}</div></div><div class="qty"><button type="button" onclick="changeCart('${p[2]}',-1)">−</button><b>${q}</b><button type="button" onclick="changeCart('${p[2]}',1)">+</button></div></div>`}).join('')}
+    <div class="total">Total: ${money(total)}</div>
+    <div class="actions"><button type="button" class="primary" onclick="saveOrder()">💾 Guardar pedido</button><button type="button" class="secondary" onclick="closeModal()">Cancelar</button></div>`;
+
+  document.getElementById('modal').classList.add('open');
+  setupAddressAutocomplete(
+    saved['f-address']||'',
+    saved['f-address-lat']!==''?Number(saved['f-address-lat']):null,
+    saved['f-address-lng']!==''?Number(saved['f-address-lng']):null,
+    saved['f-address-place-id']||''
+  );
+}
+
+function currentClientFromForm(){
+  const name=document.getElementById('f-name')?.value.trim()||'';
+  const addressEl=document.getElementById('f-address');
+  const address=addressEl?.value.trim()||'';
+  const phone=document.getElementById('f-phone')?.value.trim()||'';
+  const lat=document.getElementById('f-address-lat')?.value||addressEl?.dataset.lat||'';
+  const lng=document.getElementById('f-address-lng')?.value||addressEl?.dataset.lng||'';
+  const placeId=document.getElementById('f-address-place-id')?.value||addressEl?.dataset.placeId||'';
+  return {
+    id:'', name, address, phone,
+    lat:lat!==''?Number(lat):null,
+    lng:lng!==''?Number(lng):null,
+    placeId
+  };
+}
+
+function saveClientFromForm(){
+  const c=currentClientFromForm();
+  if(!c.name||!c.address){
+    alert('Completá primero el nombre y la dirección del cliente.');
+    return;
+  }
+
+  const existing=clients.find(x=>
+    String(x.name||'').trim().toLowerCase()===c.name.toLowerCase()
+  );
+
+  if(existing){
+    if(!confirm(`Ya existe un cliente llamado "${existing.name}". ¿Querés actualizar sus datos?`)) return;
+    existing.address=c.address;
+    existing.phone=c.phone;
+    existing.lat=c.lat;
+    existing.lng=c.lng;
+    existing.placeId=c.placeId;
+  }else{
+    clients.push({...c,id:'c'+Date.now().toString()});
+  }
+
+  clients.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
+  save();
+  alert(existing?'Cliente actualizado correctamente.':'Cliente guardado correctamente.');
+}
+
+function showClientPicker(){
+  if(!clients.length){
+    alert('Todavía no hay clientes guardados. Primero guardá un cliente y su dirección.');
+    return;
+  }
+
+  const ordered=[...clients].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
+
+  document.getElementById('sheet').innerHTML=`
+    <h2>👤 Añadir cliente</h2>
+    <div class="muted" style="margin-bottom:12px">Elegí un cliente para completar automáticamente sus datos.</div>
+    <input id="client-search" placeholder="🔎 Buscar cliente..." oninput="filterClientPicker()">
+    <div id="client-picker-list" style="margin-top:10px">
+      ${ordered.map(c=>clientPickerRow(c)).join('')}
+    </div>
+    <div class="actions" style="margin-top:14px">
+      <button type="button" class="secondary" onclick="openOrder()">Cancelar</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function clientPickerRow(c){
+  return `<button type="button" class="secondary" style="display:block;width:100%;text-align:left;margin-bottom:8px" onclick="selectClient('${esc(c.id)}')">
+    <b>${esc(c.name)}</b><br>
+    <span class="muted">📍 ${esc(c.address||'Sin dirección')}</span>${c.phone?`<br><span class="muted">📞 ${esc(c.phone)}</span>`:''}
+  </button>`;
+}
+
+function filterClientPicker(){
+  const q=(document.getElementById('client-search')?.value||'').trim().toLowerCase();
+  const list=document.getElementById('client-picker-list');
+  if(!list)return;
+  const filtered=[...clients]
+    .filter(c=>String(c.name||'').toLowerCase().includes(q) || String(c.address||'').toLowerCase().includes(q))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
+  list.innerHTML=filtered.length?filtered.map(clientPickerRow).join(''):`<div class="empty">No encontré ese cliente.</div>`;
+}
+
+function selectClient(id){
+  const c=clients.find(x=>x.id==id);
+  if(!c)return;
+
+  // Si venimos del selector, volvemos a construir el pedido conservando los productos ya elegidos.
+  const preserved=preserveOrderForm();
+  preserved['f-name']=c.name||'';
+  preserved['f-address']=c.address||'';
+  preserved['f-phone']=c.phone||'';
+  preserved['f-address-lat']=c.lat!=null?c.lat:'';
+  preserved['f-address-lng']=c.lng!=null?c.lng:'';
+  preserved['f-address-place-id']=c.placeId||'';
+  closeModal();
+  openOrder(preserved);
+}
+
+function changeCart(id,d){
+  const form=preserveOrderForm();
+  const p=PRODUCTS.find(x=>x[2]==id),i=cart.findIndex(x=>x.id==id);
+  if(i<0&&d>0)cart.push({id:p[2],name:p[0],price:p[1],qty:1});
+  else if(i>=0){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1)}
+  openOrder(form);
+}
+
+function saveOrder(){
+  const name=document.getElementById('f-name')?.value.trim()||'';
+  const addressEl=document.getElementById('f-address');
+  const address=addressEl?.value.trim()||'';
+
+  if(!name||!address||!cart.length){
+    alert('Completá nombre, dirección y al menos un producto.');
+    return;
+  }
+
+  const lat=document.getElementById('f-address-lat')?.value||addressEl?.dataset.lat||'';
+  const lng=document.getElementById('f-address-lng')?.value||addressEl?.dataset.lng||'';
+  const placeId=document.getElementById('f-address-place-id')?.value||addressEl?.dataset.placeId||'';
+
+  const wasEditing=!!editing;
+
+  const o={
+    id:editing?.id||Date.now().toString(),
+    name,
+    address,
+    phone:document.getElementById('f-phone')?.value.trim()||'',
+    payment:document.getElementById('f-payment')?.value||'Pendiente',
+    lat:lat!==''?Number(lat):null,
+    lng:lng!==''?Number(lng):null,
+    placeId,
+    items:cart.map(i=>({...i})),
+    total:cart.reduce((s,i)=>s+i.qty*i.price,0),
+    delivered:editing?.delivered||false
+  };
+
+  if(wasEditing){
+    orders[orders.findIndex(x=>x.id==editing.id)]=o;
+  }else{
+    orders.push(o);
+  }
+
+  save();
+
+  if(wasEditing){
+    closeModal();
+    go('pedidos');
+    return;
+  }
+
+  cart=[];
+  editing=null;
+  openOrder();
+}
+
+function togglePaid(id){
+  const o=orders.find(x=>x.id==id);
+  if(!o)return;
+
+  o.payment=o.payment==="Pagado" ? "Pendiente" : "Pagado";
+
+  save();
+  render();
+}
+
+function toggleDelivered(id){
+  const o=orders.find(x=>x.id==id);
+  if(!o)return;
+
+  o.delivered=!o.delivered;
+
+  save();
+  render();
+}
+
+function deleteOrder(id){
+  const o=orders.find(x=>x.id==id);
+  if(!o)return;
+
+  if(!confirm(`¿Deseás eliminar el pedido de ${o.name}?`)) return;
+
+  orders=orders.filter(x=>x.id!==id);
+
+  // También lo quitamos de las rutas guardadas para evitar paradas fantasma.
+  routeTemplates.forEach(r=>{
+    r.stops=(r.stops||[]).filter(s=>{
+      if(s.orderId) return s.orderId!==id;
+      return !(String(s.name||"").toLowerCase()===String(o.name||"").toLowerCase() &&
+               String(s.address||"").toLowerCase()===String(o.address||"").toLowerCase());
+    });
+    if(r.optimizedOrderIds) {
+      r.optimizedOrderIds=r.optimizedOrderIds.filter(x=>x!==id);
+    }
+  });
+
+  save();
+  render();
+}
+function wa(phone){let n=phone.replace(/\D/g,"");if(n.startsWith("0"))n="54"+n.slice(1);if(!n.startsWith("54"))n="54"+n;location.href="https://wa.me/"+n}
+function stockPage(m){let need={};orders.forEach(o=>o.items.forEach(i=>{if(PROMO_STOCK[i.id])Object.entries(PROMO_STOCK[i.id]).forEach(([k,v])=>need[k]=(need[k]||0)+i.qty*v);else need[i.id]=(need[i.id]||0)+i.qty}));let rows=Object.entries(need).filter(x=>PHYSICAL[x[0]]);m.innerHTML=`<h2>Stock necesario</h2><div class="card">${rows.length?rows.map(x=>`<div class="stock-row"><span>${PHYSICAL[x[0]]}</span><b>${x[1]}</b></div>`).join(""):`<div class="empty">Todavía no hay pedidos.</div>`}</div><div class="card"><b>Promociones = productos físicos</b><div class="muted">Promo 1-2-fruta → Nº1 + Nº2 + fruta. Los 3 de verdura → Nº1 + Nº2 + Nº3. Los 4 bolsones → Nº1 + Nº2 + Nº3 + fruta.</div></div>`}
+async function locationPermission(){try{let p=await window.RuteroideGeo.getCurrentPosition();alert("Ubicación obtenida correctamente.\\nLatitud: "+p.coords.latitude.toFixed(6)+"\\nLongitud: "+p.coords.longitude.toFixed(6))}catch(e){alert(window.RuteroideGeo.getErrorMessage(e))}}
+function routePage(m){
+  let pending = orders.filter(o => !o.delivered);
+  let active = routeTemplates.find(r => r.id === activeRouteId) || null;
+
+  let activeOrders = active
+    ? pending.filter(o => (active.stops||[]).some(s =>
+        (s.placeId && o.placeId && s.placeId === o.placeId) ||
+        (s.orderId && s.orderId === o.id) ||
+        (!s.orderId && String(s.name||"").toLowerCase() === String(o.name||"").toLowerCase() &&
+         String(s.address||"").toLowerCase() === String(o.address||"").toLowerCase())
+      ))
+    : [];
+
+  if(active?.optimizedOrderIds?.length){
+    const pos=new Map(active.optimizedOrderIds.map((id,i)=>[id,i]));
+    activeOrders.sort((a,b)=>(pos.get(a.id)??999999)-(pos.get(b.id)??999999));
+  }
+
+  const origin=active?.origin || "";
+  const destination=active?.destination || "";
+
+  m.innerHTML = `
+    <div class="between">
+      <h2>🗺️ Rutas y optimizador</h2>
+      <button class="primary small" onclick="saveCurrentRoute()">💾 Guardar ruta</button>
+    </div>
+
+    <div class="card">
+      <div class="between">
+        <div>
+          <b>${active ? "Ruta activa: " + esc(active.name) : "Sin ruta activa"}</b>
+          <div class="muted">
+            ${active ? activeOrders.length + " pedidos pendientes en esta ruta" : "Primero cargá una ruta guardada para optimizarla."}
+          </div>
+        </div>
+        ${active ? `<button class="secondary small" onclick="clearActiveRoute()">✖ Cerrar ruta</button>` : ""}
+      </div>
+
+      ${active ? `
+        <label>📍 Dirección inicial</label>
+        <input id="route-origin" value="${esc(origin)}" placeholder="Ej.: Mi casa / depósito / dirección de salida" autocomplete="off">
+        <div id="route-origin-status" class="address-status"></div>
+
+        <label>🏁 Punto de llegada</label>
+        <input id="route-destination" value="${esc(destination)}" placeholder="Ej.: depósito / última dirección" autocomplete="off">
+        <div id="route-destination-status" class="address-status"></div>
+
+        <div class="actions" style="margin-top:12px">
+          <button class="primary" onclick="optimizeActiveRoute()">
+            🚀 Optimizar recorrido
+          </button>
+          <button class="secondary" onclick="saveRouteEndpoints()">
+            💾 Guardar inicio/llegada
+          </button>
+        </div>
+
+        <div class="muted" style="margin-top:10px">
+          El optimizador decidirá el orden de las paradas entre el punto de salida y el punto de llegada.
+        </div>
+      ` : `
+        <div class="empty">
+          Cargá una ruta guardada desde abajo y acá aparecerán el punto de partida,
+          el punto de llegada y el botón para optimizar.
+        </div>
+      `}
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">📂 Rutas guardadas</h3>
+      ${
+        routeTemplates.length
+        ? routeTemplates.map(r => `
+          <div class="stock-row">
+            <span>
+              <b>🚚 ${esc(r.name)}</b><br>
+              <small>${(r.stops||[]).length} paradas habituales</small>
+            </span>
+            <div class="actions" style="margin-top:0">
+              <button class="secondary small" onclick="loadRoute('${r.id}')">Cargar</button>
+              <button class="danger small" onclick="deleteRoute('${r.id}')">🗑️</button>
+            </div>
+          </div>
+        `).join("")
+        : `<div class="empty">Todavía no hay rutas guardadas.</div>`
+      }
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">${active ? "📦 Orden optimizado de entrega" : "Pedidos pendientes"}</h3>
+      ${
+        active
+        ? (activeOrders.length
+          ? activeOrders.map((o,i) => `
+            <div class="stock-row">
+              <span>
+                <b>${i + 1}. ${esc(o.name)}</b><br>
+                <small>📍 ${esc(o.address)}</small>
+              </span>
+              <b>${money(o.total)}</b>
+            </div>
+          `).join("")
+          : `<div class="empty">No hay pedidos pendientes para esta ruta.</div>`)
+        : `<div class="empty">Cargá una ruta para ver sus paradas.</div>`
+      }
+    </div>
+
+    <div class="card">
+      <div class="actions">
+        <button class="primary" onclick="locationPermission()">📍 Probar GPS</button>
+        ${active ? `<button class="secondary" onclick="reoptimizeActiveRoute()">🔄 Reoptimizar</button>` : ""}
+      </div>
+    </div>
+  `;
+
+  if(active){
+    setupRouteAutocomplete("route-origin","route-origin-status",origin);
+    setupRouteAutocomplete("route-destination","route-destination-status",destination);
+  }
+}
+
+async function setupRouteAutocomplete(inputId,statusId,existingValue=""){
+  const input=document.getElementById(inputId);
+  const status=document.getElementById(statusId);
+  if(!input||!status)return;
+
+  input.dataset.lat="";
+  input.dataset.lng="";
+  input.value=existingValue||"";
+
+  const ready=await loadGooglePlaces();
+
+  if(!ready){
+    status.className="address-status address-warn";
+    status.textContent="Google Maps no pudo cargarse. Podés escribir la dirección manualmente.";
+    return;
+  }
+
+  try{
+    const autocomplete=new google.maps.places.Autocomplete(input,{
+      componentRestrictions:{country:"ar"},
+      fields:["formatted_address","geometry","place_id","name"]
+    });
+
+    autocomplete.addListener("place_changed",()=>{
+      const place=autocomplete.getPlace();
+
+      if(place?.formatted_address){
+        input.value=place.formatted_address;
+        input.dataset.lat=place.geometry?.location?.lat?.() ?? "";
+        input.dataset.lng=place.geometry?.location?.lng?.() ?? "";
+        input.dataset.placeId=place.place_id||"";
+        status.className="address-status address-ok";
+        status.textContent="📍 Punto confirmado por Google Maps.";
+      }
+    });
+
+    status.className="address-status address-warn";
+    status.textContent=existingValue
+      ? "Podés modificar el punto y elegir una sugerencia."
+      : "Escribí y elegí una sugerencia de Google Maps.";
+  }catch(e){
+    status.className="address-status address-warn";
+    status.textContent="Podés escribir la dirección manualmente.";
+  }
+}
+
+function saveRouteEndpoints(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+  if(!route)return;
+
+  const origin=document.getElementById("route-origin")?.value.trim()||"";
+  const destination=document.getElementById("route-destination")?.value.trim()||"";
+
+  if(!origin||!destination){
+    alert("Completá la dirección inicial y el punto de llegada.");
+    return;
+  }
+
+  route.origin=origin;
+  route.destination=destination;
+
+  const oi=document.getElementById("route-origin");
+  const di=document.getElementById("route-destination");
+
+  route.originLat=oi?.dataset.lat||route.originLat||"";
+  route.originLng=oi?.dataset.lng||route.originLng||"";
+  route.destinationLat=di?.dataset.lat||route.destinationLat||"";
+  route.destinationLng=di?.dataset.lng||route.destinationLng||"";
+
+  save();
+  alert("Inicio y llegada guardados.");
+}
+
+async function optimizeActiveRoute(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+  if(!route){
+    alert("Primero cargá una ruta.");
+    return;
+  }
+
+  const pending=orders.filter(o=>!o.delivered);
+
+  let routeOrders=pending.filter(o=>
+    (route.stops||[]).some(s=>
+      (s.orderId && s.orderId===o.id) ||
+      (s.placeId && o.placeId && s.placeId===o.placeId) ||
+      (!s.orderId && String(s.name||"").toLowerCase()===String(o.name||"").toLowerCase() &&
+       String(s.address||"").toLowerCase()===String(o.address||"").toLowerCase())
+    )
+  );
+
+  if(!routeOrders.length){
+    alert("No hay pedidos pendientes en esta ruta.");
+    return;
+  }
+
+  const origin=document.getElementById("route-origin")?.value.trim()||route.origin||"";
+  const destination=document.getElementById("route-destination")?.value.trim()||route.destination||"";
+
+  if(!origin||!destination){
+    alert("Completá la dirección inicial y el punto de llegada antes de optimizar.");
+    return;
+  }
+
+  if(routeOrders.length===1){
+    route.origin=origin;
+    route.destination=destination;
+    route.optimizedOrderIds=[routeOrders[0].id];
+    save();
+    render();
+    alert("Hay una sola parada: la ruta quedó lista.");
+    return;
+  }
+
+  const ready=await loadGooglePlaces();
+
+  if(!ready || !window.google?.maps?.DirectionsService){
+    alert("Google Maps no está disponible para optimizar la ruta.");
+    return;
+  }
+
+  try{
+    const service=new google.maps.DirectionsService();
+
+    const waypoints=routeOrders.map(o=>({
+      location:o.lat!=null && o.lng!=null
+        ? {lat:Number(o.lat),lng:Number(o.lng)}
+        : o.address,
+      stopover:true
+    }));
+
+    const result=await new Promise((resolve,reject)=>{
+      service.route({
+        origin,
+        destination,
+        waypoints,
+        optimizeWaypoints:true,
+        travelMode:google.maps.TravelMode.DRIVING
+      },(response,status)=>{
+        if(status==="OK") resolve(response);
+        else reject(new Error(status||"No se pudo calcular la ruta."));
+      });
+    });
+
+    const order=result.routes?.[0]?.waypoint_order;
+
+    if(!Array.isArray(order) || order.length!==routeOrders.length){
+      throw new Error("Google Maps no devolvió un orden optimizado.");
+    }
+
+    const optimized=order.map(i=>routeOrders[i]).filter(Boolean);
+
+    route.origin=origin;
+    route.destination=destination;
+    route.optimizedOrderIds=optimized.map(o=>o.id);
+    route.optimizedAt=new Date().toISOString();
+
+    save();
+    render();
+
+    alert(`Ruta optimizada correctamente: ${optimized.length} paradas.`);
+  }catch(error){
+    console.error("Optimización:",error);
+    alert("No se pudo optimizar la ruta. Revisá las direcciones inicial y final y que los pedidos tengan ubicaciones válidas.");
+  }
+}
+
+function saveCurrentRoute(){
+    let pending = orders.filter(o => !o.delivered);
+
+    if(!pending.length){
+        alert("No hay pedidos pendientes para armar una ruta.");
+        return;
+    }
+
+    document.getElementById("sheet").innerHTML = `
+        <h2>🗺️ Crear / guardar ruta</h2>
+
+        <label>Nombre de la ruta</label>
+        <input id="route-name-input" placeholder="Ej.: La Plata o Ensenada">
+
+        <p class="muted">
+            Seleccioná los pedidos que pertenecen a esta ruta.
+            Podés guardar La Plata y después crear otra ruta para Ensenada.
+        </p>
+
+        <div class="card" style="background:#f8faf8">
+            ${pending.map(o => `
+                <label style="display:flex;align-items:flex-start;gap:9px;padding:9px 0;margin:0">
+                    <input
+                        type="checkbox"
+                        class="route-order-check"
+                        value="${esc(o.id)}"
+                        style="width:auto;margin-top:3px"
+                    >
+                    <span>
+                        <b>${esc(o.name)}</b><br>
+                        <span class="muted">📍 ${esc(o.address)}</span>
+                    </span>
+                </label>
+            `).join("")}
+        </div>
+
+        <div class="actions">
+            <button class="primary" onclick="confirmSaveRoute()">
+                💾 Guardar ruta
+            </button>
+
+            <button class="secondary" onclick="closeModal()">
+                Cancelar
+            </button>
+        </div>
+    `;
+
+    document.getElementById("modal").classList.add("open");
+}
+
+function confirmSaveRoute(){
+    let name = document.getElementById("route-name-input").value.trim();
+
+    let selectedIds = [
+        ...document.querySelectorAll(".route-order-check:checked")
+    ].map(x => x.value);
+
+    if(!name){
+        alert("Ingresá un nombre para la ruta.");
+        return;
+    }
+
+    if(!selectedIds.length){
+        alert("Seleccioná al menos un pedido.");
+        return;
+    }
+
+    let selectedOrders = orders.filter(o => selectedIds.includes(o.id));
+
+    let stops = selectedOrders.map(o => ({
+        orderId: o.id,
+        name: o.name,
+        address: o.address,
+        phone: o.phone || "",
+        lat: o.lat ?? null,
+        lng: o.lng ?? null,
+        placeId: o.placeId || ""
+    }));
+
+    let existing = routeTemplates.find(
+        r => r.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if(existing){
+        if(!confirm(
+            `Ya existe la ruta "${existing.name}". ¿Sobreescribirla?`
+        )){
+            return;
+        }
+
+        existing.stops = stops;
+        existing.optimizedOrderIds = [];
+        activeRouteId = existing.id;
+
+    }else{
+
+        let route = {
+            id: "r" + Date.now(),
+            name,
+            stops,
+            origin: "",
+            destination: "",
+            originLat: "",
+            originLng: "",
+            destinationLat: "",
+            destinationLng: "",
+            optimizedOrderIds: []
+        };
+
+        routeTemplates.push(route);
+        activeRouteId = route.id;
+    }
+
+    save();
+    closeModal();
+    render();
+
+    alert(
+        `Ruta "${name}" guardada con ${stops.length} paradas.`
+    );
+}
+
+function loadRoute(id){
+    let route = routeTemplates.find(r => r.id === id);
+    if(!route) return;
