@@ -165,7 +165,7 @@ function preserveOrderForm(){
 
 const PRODUCTS=[
 ["Bolsón n°1",12000,"n1"],["Bolsón n°2",10000,"n2"],["Bolsón n°3",15000,"n3"],["Bolsón de frutas",10000,"fruta"],
-["Miel",8000,"miel"],["Huevos comunes",7000,"hcom"],["Huevos comunes x 2",14000,"hcom2"],["Huevos Caseros",10000,"hcas"],["Huevos Agroecológicos",12000,"hagr"],
+["Miel",8000,"miel"],["Huevos comunes",7000,"hcom"],["Huevos comunes x 2",13000,"hcom2"],["Huevos Caseros",10000,"hcas"],["Huevos Agroecológicos",12000,"hagr"],
 ["Cremoso Cremac x 2kg",18000,"cc2"],["Cremoso Cremac x 4kg",36000,"cc4"],["Sardo Fresco x 1,5kg",18000,"sf15"],["Sardo Fresco x 3kg",36000,"sf3"],["Sardo Cremac x 1,8kg",36000,"sc18"],
 ["Promo 1-2-Fruta",31000,"promo12f"],["Promo Los 3 de verdura",35000,"promo3v"],["Promo Los 4 bolsones",45000,"promo4"]];
 const PROMO_STOCK={promo12f:{n1:1,n2:1,fruta:1},promo3v:{n1:1,n2:1,n3:1},promo4:{n1:1,n2:1,n3:1,fruta:1}};
@@ -487,9 +487,9 @@ function selectClient(id){
 
 function changeCart(id,d){
   const form=preserveOrderForm();
-  if(id==="hcom2"){id="hcom";d=d*2;}
   const p=PRODUCTS.find(x=>x[2]==id),i=cart.findIndex(x=>x.id==id);
-  if(i<0&&d>0)cart.push({id:p[2],name:p[0],price:p[1],qty:1});
+  if(!p)return;
+  if(i<0&&d>0)cart.push({id:p[2],name:p[0],price:p[1],qty:d});
   else if(i>=0){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1)}
   openOrder(form);
 }
@@ -587,8 +587,8 @@ function deleteOrder(id){
   render();
 }
 function wa(phone){let n=phone.replace(/\D/g,"");if(n.startsWith("0"))n="54"+n.slice(1);if(!n.startsWith("54"))n="54"+n;location.href="https://wa.me/"+n}
-function stockPage(m){let need={};orders.forEach(o=>o.items.forEach(i=>{if(PROMO_STOCK[i.id])Object.entries(PROMO_STOCK[i.id]).forEach(([k,v])=>need[k]=(need[k]||0)+i.qty*v);else if(i.id==="hcom2")need.hcom=(need.hcom||0)+i.qty*2;else need[i.id]=(need[i.id]||0)+i.qty}));let rows=Object.entries(need).filter(x=>PHYSICAL[x[0]]);m.innerHTML=`<h2>Stock necesario</h2><div class="card">${rows.length?rows.map(x=>`<div class="stock-row"><span>${PHYSICAL[x[0]]}</span><b>${x[1]}</b></div>`).join(""):`<div class="empty">Todavía no hay pedidos.</div>`}</div><div class="card"><b>Promociones = productos físicos</b><div class="muted">Promo 1-2-fruta → Nº1 + Nº2 + fruta. Los 3 de verdura → Nº1 + Nº2 + Nº3. Los 4 bolsones → Nº1 + Nº2 + Nº3 + fruta.</div></div><h2>💲 Editar precios</h2><div class="card"><div class="muted">Los cambios se guardan en este dispositivo y se aplican a pedidos nuevos. Los pedidos existentes conservan sus precios históricos.</div>${PRODUCTS.filter(p=>p[2]!=="hcom2").map(p=>`<div class="stock-row" style="align-items:center;gap:12px"><label for="price-${p[2]}" style="flex:1">${esc(p[0])}</label><input id="price-${p[2]}" type="number" min="0" step="1" value="${p[1]}" inputmode="numeric" style="width:125px;padding:9px;border:1px solid var(--line);border-radius:9px"></div>`).join("")}<button class="primary" style="width:100%;margin-top:12px" onclick="saveProductPrices()">💾 Guardar precios</button></div>`}
-function saveProductPrices(){for(const p of PRODUCTS){if(p[2]==="hcom2")continue;const el=document.getElementById("price-"+p[2]);if(!el)continue;const value=Number(el.value);if(!Number.isFinite(value)||value<0){alert("Revisá los precios: deben ser números iguales o mayores que cero.");return;}p[1]=Math.round(value);}localStorage.setItem("mvi_product_prices",JSON.stringify(Object.fromEntries(PRODUCTS.map(p=>[p[2],p[1]]))));alert("Precios guardados.");render();}
+function stockPage(m){let need={};orders.forEach(o=>o.items.forEach(i=>{if(PROMO_STOCK[i.id])Object.entries(PROMO_STOCK[i.id]).forEach(([k,v])=>need[k]=(need[k]||0)+i.qty*v);else if(i.id==="hcom2")need.hcom=(need.hcom||0)+i.qty*2;else need[i.id]=(need[i.id]||0)+i.qty}));let rows=Object.entries(need).filter(x=>PHYSICAL[x[0]]);m.innerHTML=`<h2>Stock necesario</h2><div class="card">${rows.length?rows.map(x=>`<div class="stock-row"><span>${PHYSICAL[x[0]]}</span><b>${x[1]}</b></div>`).join(""):`<div class="empty">Todavía no hay pedidos.</div>`}</div><div class="card"><b>Promociones = productos físicos</b><div class="muted">Promo 1-2-fruta → Nº1 + Nº2 + fruta. Los 3 de verdura → Nº1 + Nº2 + Nº3. Los 4 bolsones → Nº1 + Nº2 + Nº3 + fruta.</div></div><h2>💲 Editar precios</h2><div class="card"><div class="muted">Los cambios se guardan en este dispositivo y se aplican a pedidos nuevos. Los pedidos existentes conservan sus precios históricos.</div>${PRODUCTS.map(p=>`<div class="stock-row" style="align-items:center;gap:12px"><label for="price-${p[2]}" style="flex:1">${esc(p[0])}</label><input id="price-${p[2]}" type="number" min="0" step="1" value="${p[1]}" inputmode="numeric" style="width:125px;padding:9px;border:1px solid var(--line);border-radius:9px"></div>`).join("")}<button class="primary" style="width:100%;margin-top:12px" onclick="saveProductPrices()">💾 Guardar precios</button></div>`}
+function saveProductPrices(){for(const p of PRODUCTS){const el=document.getElementById("price-"+p[2]);if(!el)continue;const value=Number(el.value);if(!Number.isFinite(value)||value<0){alert("Revisá los precios: deben ser números iguales o mayores que cero.");return;}p[1]=Math.round(value);}localStorage.setItem("mvi_product_prices",JSON.stringify(Object.fromEntries(PRODUCTS.map(p=>[p[2],p[1]]))));alert("Precios guardados.");render();}
 async function locationPermission(){
   if(!navigator.geolocation){alert("Este dispositivo no ofrece geolocalización en el navegador.");return;}
   navigator.geolocation.getCurrentPosition(
