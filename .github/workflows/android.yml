@@ -8,22 +8,38 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - run: npm install
-      - run: npm test
-      - run: npm run build:web
-      - run: npx cap add android
-      - run: npx cap sync android
-      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
+      - name: Verificar entorno
+        run: |
+          node --version
+          npm --version
+          java -version
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Ejecutar pruebas
+        run: npm test
+      - name: Validar y preparar interfaz
+        run: npm run build:web
+      - name: Crear proyecto Android
+        run: npx cap add android
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
+      - name: Compilar APK de depuración
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Publicar APK de prueba
+        uses: actions/upload-artifact@v4
         with:
           name: Manos-Verdes-Full-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
