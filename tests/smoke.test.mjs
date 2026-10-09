@@ -43,6 +43,6 @@ test("Huevos comunes x 2 suma dos unidades al producto Huevos comunes", () => {
   assert.ok(html.includes('if(id==="hcom2"){id="hcom";d=d*2;}'));
   assert.ok(html.includes('else if(i.id==="hcom2")need.hcom=(need.hcom||0)+i.qty*2'));
   assert.ok(html.includes("suma 2 unidades a Huevos comunes"));
-  assert.ok(html.includes('["Huevos comunes x 2",13000,"hcom2"]'));
+  assert.match(html, /\["Huevos comunes x 2",\s*13000,\s*"hcom2"\]/);
   assert.ok(html.includes('price=p[2]==="hcom2"?p[1]:p[1]'));
 });
