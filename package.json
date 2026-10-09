@@ -1,0 +1,17 @@
+{
+  "name": "manos-verdes-full",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reconstrucción independiente de Manos Verdes Integral",
+  "scripts": {
+    "build:web": "node scripts/prepare-web.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}
