@@ -1,10 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-<rect width="128" height="128" rx="24" fill="#176b3a"/>
-<path d="M19 70h90l-9 38H28z" fill="#f6f1e5" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
-<path d="M24 70h80" stroke="#d7e7d9" stroke-width="5" stroke-linecap="round"/>
-<path d="M45 69C25 55 28 35 33 25c20 8 29 24 12 44Z" fill="#b8e986" stroke="#fff" stroke-width="2"/>
-<path d="M63 69C55 43 68 24 85 17c11 20 3 42-22 52Z" fill="#e6f6ce" stroke="#fff" stroke-width="2"/>
-<path d="M77 69c-2-20 12-32 29-34 5 20-7 33-29 34Z" fill="#8fd16a" stroke="#fff" stroke-width="2"/>
-<path d="M39 83l8 15m10-15 2 15m17-15-3 15m16-15-7 15" stroke="#176b3a" stroke-width="4" stroke-linecap="round"/>
-<path d="M18 112h92" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#54c7f3"/><stop offset="1" stop-color="#f8d48a"/></linearGradient>
+ <linearGradient id="wood" x2="0" y2="1"><stop stop-color="#8d542d"/><stop offset=".5" stop-color="#5b321c"/><stop offset="1" stop-color="#321b12"/></linearGradient>
+ <linearGradient id="leaf" x2="1" y2="1"><stop stop-color="#b8ef68"/><stop offset="1" stop-color="#167b35"/></linearGradient>
+ <linearGradient id="carrot" x2="0" y2="1"><stop stop-color="#ffb43d"/><stop offset="1" stop-color="#e65a17"/></linearGradient>
+ <filter id="shadow"><feGaussianBlur stdDeviation="1.4"/></filter>
+</defs>
+<!-- full-bleed background, no white frame -->
+<rect width="128" height="128" fill="url(#sky)"/>
+<path d="M0 39Q24 29 44 38T85 35T128 34V55H0Z" fill="#4a8d45"/>
+<path d="M0 45Q34 39 61 46T128 42V60H0Z" fill="#287343"/>
+<path d="M0 48h128v15H0z" fill="#56b8c8"/>
+<path d="M0 57q32-4 64 1t64-1v12H0z" fill="#e3bc6c"/>
+<!-- abundant foliage -->
+<g stroke="#174c28" stroke-width=".7">
+ <path d="M6 69Q-1 43 13 27Q30 45 17 68Z" fill="url(#leaf)"/>
+ <path d="M14 66Q10 37 27 24Q39 47 21 68Z" fill="#398d38"/>
+ <path d="M27 67Q23 39 42 28Q50 49 34 68Z" fill="#6fbd45"/>
+ <path d="M37 65Q38 37 57 31Q64 52 44 68Z" fill="#2c7d35"/>
+ <path d="M54 66Q48 38 66 26Q82 46 61 69Z" fill="#69b63d"/>
+ <path d="M66 67Q65 39 83 28Q97 48 73 69Z" fill="#287c35"/>
+ <path d="M82 67Q81 40 99 27Q113 48 90 69Z" fill="#65ad3d"/>
+ <path d="M98 68Q99 40 116 31Q128 51 106 70Z" fill="#287a37"/>
+ <path d="M8 60L15 37M25 61L31 35M45 61L53 39M68 61L77 38M88 61L97 37M105 61L113 40" fill="none" stroke="#b2df72" stroke-width="1.2"/>
+</g>
+<!-- vegetables -->
+<g>
+ <path d="M12 46q-5-9 1-14q5 3 5 8q7-9 10-4q-1 8-10 12Z" fill="#286d2c"/>
+ <path d="M12 48Q3 66 16 79Q27 65 18 47Z" fill="url(#carrot)" stroke="#b94b1c" stroke-width=".7"/>
+ <path d="M15 55l3 2m-4 5 3 1m-4 5 3 1" stroke="#ffd16b" stroke-width=".8"/>
+ <path d="M27 44q-4-9 3-13q5 4 3 9q7-8 10-2q-3 8-12 11Z" fill="#347e2d"/>
+ <path d="M28 48Q20 66 32 80Q43 66 34 47Z" fill="url(#carrot)" stroke="#b94b1c" stroke-width=".7"/>
+ <circle cx="51" cy="52" r="10" fill="#e63c2f"/><path d="M51 42l-3-5 6 3 4-2-2 5" fill="#2d8039"/>
+ <circle cx="76" cy="51" r="11" fill="#d92f27"/><path d="M76 41l-3-5 6 3 4-2-2 5" fill="#2d8039"/>
+ <path d="M90 48q-6-11 4-15q10 2 8 12q-2 10-12 8Z" fill="#542b75" stroke="#351b50" stroke-width="1"/>
+ <path d="M94 36l-2-5 5 4 4-3-1 6" fill="#4a9639"/>
+ <circle cx="109" cy="58" r="7" fill="#df3431"/><path d="M109 51l-3-4 5 2 3-2-1 4" fill="#35823a"/>
+</g>
+<!-- crate with full-bleed wooden slats -->
+<path d="M0 66Q20 61 39 66T80 65T128 66V128H0Z" fill="url(#wood)" stroke="#30180f" stroke-width="1.5"/>
+<path d="M0 73Q32 69 64 73T128 72M0 88Q32 84 64 88T128 87M0 104Q32 100 64 104T128 103M0 119Q32 115 64 119T128 118" fill="none" stroke="#b17b49" stroke-width="1.6"/>
+<path d="M3 69h122M3 85h122M3 101h122M3 116h122" stroke="#2d180f" stroke-width="1" opacity=".75"/>
+<g fill="#e1b17a" stroke="#2e1a10" stroke-width=".6"><circle cx="7" cy="73" r="1.5"/><circle cx="121" cy="73" r="1.5"/><circle cx="7" cy="103" r="1.5"/><circle cx="121" cy="103" r="1.5"/></g>
+<!-- readable painted lettering -->
+<text x="64" y="87" text-anchor="middle" font-family="Trebuchet MS,Arial,sans-serif" font-size="16" font-weight="900" fill="#fff0d1" stroke="#29170f" stroke-width="1.8" paint-order="stroke">Manos</text>
+<text x="64" y="105" text-anchor="middle" font-family="Trebuchet MS,Arial,sans-serif" font-size="19" font-weight="900" fill="#8be43e" stroke="#203b17" stroke-width="2" paint-order="stroke">Verdes</text>
+<path d="M24 111Q64 115 104 111" fill="none" stroke="#a5e75c" stroke-width="2.2" stroke-linecap="round"/>
 </svg>
