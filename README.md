@@ -1,26 +1,37 @@
 # Manos Verdes Full
 
-Reconstrucción de **Manos Verdes Full** a partir de la APK de Manos Verdes Integral entregada como referencia.
+Reconstrucción Android independiente de **Manos Verdes Integral**, destinada a instalarse en paralelo y probarse sin borrar la aplicación original.
 
-## Objetivo funcional
-- Mantener las pantallas y funciones incluidas en la APK de referencia.
-- Instalar Full en paralelo con Integral, sin desinstalar ni sobrescribir la original.
-- Conservar el icono y sumar un botón pequeño, solo con el icono 💬, junto a Google Maps en cada parada de ruta que tenga teléfono.
-- Usar la función WhatsApp existente en la interfaz.
+## Obtener la APK de prueba
 
-## Reconstrucción desde la APK
-La APK original se coloca localmente en `input/original.apk` (no se sube al repositorio). Ejecutar:
+La compilación automática está configurada en [GitHub Actions](https://github.com/Trotabares1978/Manos-Verdes-Full/actions), rama `clean-rebuild`.
+
+1. Abrí la ejecución más reciente de **Build Manos Verdes Full**.
+2. Esperá a que el trabajo termine en verde.
+3. En **Artifacts**, descargá `Manos-Verdes-Full-debug`.
+4. Descomprimí el ZIP e instalá `app-debug.apk` en Android. Si Android lo solicita, autorizá temporalmente la instalación desde esa fuente.
+
+El paquete configurado es `ar.com.manosverdes.full`, distinto del original `com.manosverdes.integral`; la intención es que ambas aplicaciones puedan convivir. La APK de depuración no está pensada para publicarse en una tienda.
+
+## Compilación reproducible
+
+Requiere Node.js 22, Java 21 y Android SDK (el runner de GitHub Actions ya proporciona el entorno Android).
 
 ```bash
-python3 scripts/build-apk-from-binary.py input/original.apk out/Manos-Verdes-Full-unsigned.apk
+npm install
+npm test
+npm run build:web
+npx cap add android
+npx cap sync android
+cd android
+./gradlew assembleDebug --no-daemon
 ```
 
-El script verifica que la plantilla de ruta y la función WhatsApp existan, añade el botón una sola vez, cambia el identificador Android para separar ambas instalaciones y actualiza la configuración de Capacitor.
+El APK se genera en `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-Después se debe firmar el APK con una clave propia antes de instalarlo. Una firma nueva no permite actualizar la aplicación original ni compartir directamente sus datos privados; la migración de datos depende del mecanismo de exportación/importación de la aplicación.
+## Estado y alcance
 
-## Validaciones y límites
-- La modificación del HTML y la estructura ZIP se validan automáticamente.
-- La firma criptográfica no demuestra por sí sola que Android vaya a instalar la APK: la instalación real debe probarse en un dispositivo.
-- El cambio de identificador de paquete se mantiene de la misma longitud binaria para evitar reconstruir recursos Android compilados.
-- La APK generada en este trabajo todavía necesita una prueba de instalación real en Android antes de declararse lista.
+- La compilación automática ejecuta primero las pruebas de humo.
+- La prueba de compilación no sustituye una instalación y prueba funcional en un teléfono.
+- La interfaz de `web/index.html` todavía debe cotejarse con el HTML íntegro de la APK original antes de afirmar que conserva todas las funciones. No se debe dar por validada la equivalencia funcional hasta completar esa revisión.
+- No desinstales Manos Verdes Integral ni importes datos reales sin conservar antes una copia de seguridad.
