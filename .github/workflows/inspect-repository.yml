@@ -1,0 +1,16 @@
+name: Inspeccionar repositorio
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Mostrar archivos presentes
+        run: |
+          echo "Archivos del repositorio:"
+          find . -maxdepth 4 -type f -not -path './.git/*' | sort
+          echo "Fin de la inspección."
