@@ -31,6 +31,25 @@ jobs:
         run: npm run build:web
       - name: Crear proyecto Android
         run: npx cap add android
+      - name: Aplicar icono agroecológico y nombre de la app
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $spec
+            density="$1"
+            size="$2"
+            dir="android/app/src/main/res/mipmap-$density"
+            mkdir -p "$dir"
+            convert -background none web/icon.svg -resize "${size}x${size}" "$dir/ic_launcher.png"
+            convert -background none web/icon.svg -resize "${size}x${size}" "$dir/ic_launcher_round.png"
+          done
+          mkdir -p android/app/src/main/res/drawable
+          convert -background none web/icon.svg -resize 432x432 android/app/src/main/res/drawable/ic_launcher_foreground.png
+          mkdir -p android/app/src/main/res/values
+          cat > android/app/src/main/res/values/ic_launcher_background.xml <<'EOF'
+          <resources><color name="ic_launcher_background">#176b3a</color></resources>
+          EOF
       - name: Sincronizar Capacitor
         run: npx cap sync android
       - name: Compilar APK de depuración
