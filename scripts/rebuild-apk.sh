@@ -8,22 +8,32 @@ APP_LABEL="Manos Verdes Full"
 
 if [[ ! -f "$INPUT_APK" ]]; then
   echo "ERROR: falta $INPUT_APK"
-  echo "Subí la APK original de Manos Verdes Integral a input/original.apk para ejecutar la reconstrucción."
   exit 2
+fi
+if [[ "$PACKAGE_ID" == "com.manosverdes.integral" ]]; then
+  echo "ERROR: el identificador Full debe ser distinto del original."
+  exit 3
 fi
 
 mkdir -p "$OUT_DIR"
 WORK="$OUT_DIR/decoded"
 rm -rf "$WORK"
 
-echo "1/5 - Verificando APK de entrada"
+echo "1/6 - Verificando APK de entrada"
 unzip -t "$INPUT_APK" >/dev/null
-echo "APK ZIP íntegro."
-
-echo "2/5 - Decodificando manifiesto y recursos"
+echo "2/6 - Decodificando APK"
 apktool d -f "$INPUT_APK" -o "$WORK"
 
-echo "3/5 - Cambiando identidad de paquete"
+echo "3/6 - Agregando botón WhatsApp en las paradas (si se reconoce la plantilla)"
+ASSET="$WORK/assets/public/index.html"
+if [[ -f "$ASSET" ]]; then
+  python3 scripts/patch-route-whatsapp.py "$ASSET"
+else
+  echo "::error::No se encontró assets/public/index.html. Se detiene para no publicar una app sin el cambio solicitado."
+  exit 4
+fi
+
+echo "4/6 - Cambiando identificador y nombre de la app"
 python3 - "$WORK/AndroidManifest.xml" "$PACKAGE_ID" "$APP_LABEL" <<'PY'
 import sys
 from pathlib import Path
@@ -43,16 +53,19 @@ print("package =", package_id)
 print("application label =", label)
 PY
 
-echo "4/5 - Recompilando"
+echo "5/6 - Recompilando"
 apktool b "$WORK" -o "$OUT_DIR/Manos-Verdes-Full-unsigned.apk"
 
-echo "5/5 - Firmando APK con clave temporal de CI"
+echo "6/6 - Firmando y verificando APK"
 keytool -genkeypair -noprompt -keystore "$OUT_DIR/test-keystore.jks" -storepass changeit \
   -alias mvfull -keypass changeit -keyalg RSA -keysize 2048 -validity 10000 \
   -dname "CN=Manos Verdes Full, OU=Test, O=Manos Verdes, L=Ensenada, ST=Buenos Aires, C=AR"
 jarsigner -keystore "$OUT_DIR/test-keystore.jks" -storepass changeit -keypass changeit \
   -signedjar "$OUT_DIR/Manos-Verdes-Full.apk" "$OUT_DIR/Manos-Verdes-Full-unsigned.apk" mvfull
-jarsigner -verify -verbose "$OUT_DIR/Manos-Verdes-Full.apk" >/dev/null
-
-echo "APK firmada: $OUT_DIR/Manos-Verdes-Full.apk"
-echo "AVISO: firma de prueba nueva; la importación de backups y el arranque deben validarse en un dispositivo."
+jarsigner -verify "$OUT_DIR/Manos-Verdes-Full.apk"
+unzip -p "$OUT_DIR/Manos-Verdes-Full.apk" assets/public/index.html | grep -q 'aria-label="WhatsApp"' || {
+  echo "::error::No se detectó el botón WhatsApp en el APK resultante."
+  exit 5
+}
+echo "APK reconstruida y firmada: $OUT_DIR/Manos-Verdes-Full.apk"
+echo "::warning::Debe probarse en un teléfono antes de considerarla lista; la firma es nueva y temporal."
