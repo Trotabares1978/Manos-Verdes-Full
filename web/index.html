@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Manos Verdes Integral</title>
+<title>Manos Verdes Full</title>
 <style>
 :root{--g:#176b3a;--g2:#2d934f;--cream:#f6f1e5;--ink:#183326;--muted:#68776e;--line:#dce5de;--white:#fff;--red:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
@@ -685,7 +685,7 @@ function routePage(m){
               </span>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
                 <b>${money(o.total)}</b>
-                ${o.phone ? `<button class="secondary small" onclick="wa(\'${esc(o.phone)}\')">💬 WhatsApp</button>` : ""}
+                ${o.phone ? `<button class="secondary small" onclick="wa('${String(o.phone).replace(/\D/g, "")}')">💬 WhatsApp</button>` : ""}
               </div>
             </div>
           `).join("")
