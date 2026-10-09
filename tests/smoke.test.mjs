@@ -40,9 +40,13 @@ test("permite editar y persistir precios desde Stock", () => {
   assert.ok(html.includes('mvi_product_prices'));
 });
 test("Huevos comunes x 2 suma dos unidades al producto Huevos comunes", () => {
-  assert.ok(html.includes('if(id==="hcom2"){id="hcom";d=d*2;}'));
+  assert.ok(!html.includes('if(id==="hcom2"){id="hcom";d=d*2;}'));
   assert.ok(html.includes('else if(i.id==="hcom2")need.hcom=(need.hcom||0)+i.qty*2'));
   assert.ok(html.includes("suma 2 unidades a Huevos comunes"));
   assert.match(html, /\["Huevos comunes x 2",\s*13000,\s*"hcom2"\]/);
-  assert.ok(html.includes('price=p[2]==="hcom2"?p[1]:p[1]'));
+  assert.ok(html.includes('money(p[1])'));
+  assert.ok(!html.includes('PRODUCTS.filter(p=>p[2]!=="hcom2")'));
+  assert.ok(!html.includes('if(p[2]==="hcom2")continue'));
+  assert.ok(html.includes('if(!p)return;'));
+  assert.ok(html.includes('let q=cart.find(i=>i.id==p[2])?.qty||0'));
 });
