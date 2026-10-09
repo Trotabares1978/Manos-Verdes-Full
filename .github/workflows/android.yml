@@ -59,6 +59,22 @@ jobs:
           cp android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
       - name: Sincronizar Capacitor
         run: npx cap sync android
+      - name: Aplicar icono final después de sincronizar
+        run: |
+          # Reaplicar los iconos DESPUÉS de Capacitor para evitar que sean reemplazados.
+          for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $spec
+            density="$1"
+            size="$2"
+            dir="android/app/src/main/res/mipmap-$density"
+            mkdir -p "$dir"
+            convert web/icon.svg -background "#176b3a" -alpha remove -alpha off -resize "${size}x${size}!" "$dir/ic_launcher.png"
+            convert web/icon.svg -background "#176b3a" -alpha remove -alpha off -resize "${size}x${size}!" "$dir/ic_launcher_round.png"
+          done
+          mkdir -p android/app/src/main/res/drawable
+          convert web/icon.svg -background "#176b3a" -alpha remove -alpha off -resize 432x432! android/app/src/main/res/drawable/ic_launcher_foreground.png
+          # Confirmar que el manifiesto usa el recurso que acabamos de generar.
+          grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
       - name: Compilar APK de depuración
         run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - name: Publicar APK de prueba
