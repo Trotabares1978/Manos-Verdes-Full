@@ -375,7 +375,7 @@ function openOrder(preserved=null){
     <select id="f-payment"><option ${saved['f-payment']!='Pagado'?'selected':''}>Pendiente</option><option ${saved['f-payment']=='Pagado'?'selected':''}>Pagado</option></select>
 
     <h3>Productos</h3>
-    ${PRODUCTS.map(p=>{let id=p[2]==="hcom2"?"hcom":p[2],q=cart.find(i=>i.id==id)?.qty||0,price=p[2]==="hcom2"?p[1]:p[1];return `<div class="product"><div><b>${p[0]}</b><div class="muted">${money(price)}${p[2]==="hcom2"?' · suma 2 unidades a Huevos comunes':''}</div></div><div class="qty"><button type="button" onclick="changeCart('${p[2]}',-1)">−</button><b>${p[2]==="hcom2"?Math.floor(q/2):q}</b><button type="button" onclick="changeCart('${p[2]}',1)">+</button></div></div>`}).join('')}
+    ${PRODUCTS.map(p=>{let q=cart.find(i=>i.id==p[2])?.qty||0;return `<div class="product"><div><b>${p[0]}</b><div class="muted">${money(p[1])}${p[2]==="hcom2"?' · suma 2 unidades a Huevos comunes':''}</div></div><div class="qty"><button type="button" onclick="changeCart('${p[2]}',-1)">−</button><b>${q}</b><button type="button" onclick="changeCart('${p[2]}',1)">+</button></div></div>`}).join('')}
     <div class="total">Total: ${money(total)}</div>
     <div class="actions"><button type="button" class="primary" onclick="saveOrder()">💾 Guardar pedido</button><button type="button" class="secondary" onclick="closeModal()">Cancelar</button></div>`;
 
