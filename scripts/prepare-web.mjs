@@ -13,13 +13,13 @@ for (const [needle, message] of [
   ["function importBackup(", "Falta la importación de copias de seguridad."]
 ]) if (!html.includes(needle)) throw new Error(message);
 
-const scripts = [...html.matchAll(/<script(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(m => m[1]).filter(s => s.trim());
+const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).filter(s => s.trim());
 if (!scripts.length) throw new Error("No se encontró JavaScript ejecutable.");
 scripts.forEach((source, i) => new vm.Script(source, { filename: `inline-script-${i}.js` }));
 
-const handlers = [...html.matchAll(/onclick="\\s*([A-Za-z_$][\\w$]*)\\s*\\(/g)].map(m => m[1]);
-const definitions = new Set([...html.matchAll(/(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\s*\\(/g)].map(m => m[1]));
-const assigned = new Set([...html.matchAll(/(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?\\(/g)].map(m => m[1]));
+const handlers = [...html.matchAll(/onclick="\s*([A-Za-z_$][\w$]*)\s*\(/g)].map(m => m[1]);
+const definitions = new Set([...html.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(m => m[1]));
+const assigned = new Set([...html.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(/g)].map(m => m[1]));
 const missing = [...new Set(handlers)].filter(name => !definitions.has(name) && !assigned.has(name));
 if (missing.length) throw new Error("Manejadores sin función: " + missing.join(", "));
 
