@@ -33,3 +33,14 @@ test("identifica la aplicación como Manos Verdes", () => {
   assert.ok(html.includes("<title>Manos Verdes</title>"));
   assert.ok(html.includes("<h1>Manos Verdes</h1>"));
 });
+
+test("permite editar y persistir precios desde Stock", () => {
+  assert.ok(html.includes("function saveProductPrices()"));
+  assert.ok(html.includes('id="price-'));
+  assert.ok(html.includes('mvi_product_prices'));
+});
+test("Huevos comunes x 2 suma dos unidades al producto Huevos comunes", () => {
+  assert.ok(html.includes('if(id==="hcom2"){id="hcom";d=d*2;}'));
+  assert.ok(html.includes('else if(i.id==="hcom2")need.hcom=(need.hcom||0)+i.qty*2'));
+  assert.ok(html.includes("suma 2 unidades a Huevos comunes"));
+});
