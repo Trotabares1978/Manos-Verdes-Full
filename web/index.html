@@ -171,8 +171,16 @@ const PRODUCTS=[
 const PROMO_STOCK={promo12f:{n1:1,n2:1,fruta:1},promo3v:{n1:1,n2:1,n3:1},promo4:{n1:1,n2:1,n3:1,fruta:1}};
 const savedProductPrices=load("mvi_product_prices",{}); PRODUCTS.forEach(p=>{if(savedProductPrices[p[2]]!=null&&Number.isFinite(Number(savedProductPrices[p[2]]))&&Number(savedProductPrices[p[2]])>=0)p[1]=Number(savedProductPrices[p[2]]);});
 const PHYSICAL={n1:"Bolsón n°1",n2:"Bolsón n°2",n3:"Bolsón n°3",fruta:"Bolsón de frutas",miel:"Miel",hcom:"Huevos comunes",hcas:"Huevos Caseros",hagr:"Huevos Agroecológicos",cc2:"Cremoso Cremac x 2kg",cc4:"Cremoso Cremac x 4kg",sf15:"Sardo Fresco x 1,5kg",sf3:"Sardo Fresco x 3kg",sc18:"Sardo Cremac x 1,8kg"};
-let orders=load("mvi_orders",[]), history=load("mvi_history",[]), debts=load("mvi_debts",[]), clients=load("mvi_clients",[]), routeTemplates=load("mvi_route_templates",[]), activeRouteId=load("mvi_active_route",null), page="inicio", cart=[], editing=null;
+let orders=load("mvi_orders",[]), history=load("mvi_history",[]), debts=load("mvi_debts",[]), clients=load("mvi_clients",[]), routeTemplates=load("mvi_route_templates",[]), activeRouteId=load("mvi_active_route",null), page=load("mvi_current_page","inicio"), cart=[], editing=null;
+let restoreViewState=true;
 function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+function saveViewState(){
+  try{
+    localStorage.setItem("mvi_current_page",JSON.stringify(page));
+    localStorage.setItem("mvi_scroll_y",JSON.stringify(Math.max(0,window.scrollY||window.pageYOffset||0)));
+    localStorage.setItem("mvi_view_saved_at",JSON.stringify(Date.now()));
+  }catch(e){}
+}
 function save(){
   localStorage.setItem("mvi_product_prices",JSON.stringify(Object.fromEntries(PRODUCTS.map(p=>[p[2],p[1]]))));
   localStorage.setItem("mvi_orders",JSON.stringify(orders));
@@ -181,6 +189,7 @@ function save(){
   localStorage.setItem("mvi_clients",JSON.stringify(clients));
   localStorage.setItem("mvi_route_templates",JSON.stringify(routeTemplates));
   localStorage.setItem("mvi_active_route",JSON.stringify(activeRouteId));
+  saveViewState();
 }
 function money(n){return "$"+Number(n||0).toLocaleString("es-AR")}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -196,7 +205,7 @@ function nav(){
   ];
   document.getElementById("nav").innerHTML=a.map(x=>`<button class="${page==x[0]?"active":""}" onclick="go('${x[0]}')">${x[1]}</button>`).join("");
 }
-function go(x){page=x;render();scrollTo(0,0)}
+function go(x){page=x;saveViewState();render();scrollTo(0,0);saveViewState()}
 function render(){
   nav();
   let m=document.getElementById("main");
@@ -207,7 +216,20 @@ function render(){
   if(page=="historial")historyPage(m);
   if(page=="deudas")debtsPage(m);
   if(page=="copia")backupPage(m);
+  saveViewState();
 }
+function restoreSavedView(){
+  const savedPage=load("mvi_current_page","inicio");
+  const allowed=["inicio","pedidos","ruta","stock","historial","deudas","copia"];
+  page=allowed.includes(savedPage)?savedPage:"inicio";
+  render();
+  const y=Number(load("mvi_scroll_y",0))||0;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,y)));
+}
+window.addEventListener("pagehide",saveViewState);
+window.addEventListener("beforeunload",saveViewState);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")saveViewState()});
+window.addEventListener("pageshow",()=>{if(restoreViewState){restoreViewState=false;restoreSavedView()}});
 function home(m){
   let p=orders.filter(o=>!o.delivered).length;
   let t=orders.reduce((s,o)=>s+o.total,0);
