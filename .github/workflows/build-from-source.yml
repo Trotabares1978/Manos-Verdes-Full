@@ -1,0 +1,81 @@
+name: Build Manos Verdes Full from source
+
+on:
+  push:
+    branches:
+      - feature/editable-routes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Python image tooling
+        run: python3 -m pip install --upgrade pillow
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare app assets and apply route editor
+        run: |
+          mkdir -p www
+          cp source/Manos-Verdes-Integral.html www/index.html
+          python3 scripts/patch-route-editing.py www/index.html
+
+          # The source HTML expects icon.png. Generate a simple app mark if the
+          # original icon asset is not part of this repository.
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          from pathlib import Path
+          p = Path("www/icon.png")
+          if not p.exists():
+              im = Image.new("RGBA", (512, 512), (22, 107, 58, 255))
+              d = ImageDraw.Draw(im)
+              d.ellipse((80, 70, 432, 422), fill=(245, 250, 244, 255))
+              d.ellipse((168, 100, 355, 340), fill=(46, 139, 87, 255))
+              d.polygon([(250, 380), (250, 205), (315, 155), (294, 248)], fill=(22, 107, 58, 255))
+              d.line((135, 365, 355, 140), fill=(22, 107, 58, 255), width=20)
+              im.save(p)
+          PY
+
+          npx esbuild geo-bridge.js --bundle --format=iife --outfile=www/geo-bridge.bundle.js
+
+      - name: Generate Android project
+        run: npx cap add android
+
+      - name: Sync Capacitor plugins
+        run: npx cap sync android
+
+      - name: Configure Android permissions, app icon, and contacts picker
+        run: python3 scripts/configure-android.py
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Manos-Verdes-Full-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
