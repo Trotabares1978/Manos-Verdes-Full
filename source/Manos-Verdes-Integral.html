@@ -982,7 +982,7 @@ function removeOrderFromActiveRoute(id){
 
   const order=orders.find(o=>String(o.id)===String(id));
 
-  if(!confirm(`¿Quitar ${order?.name||"este pedido"} de esta ruta?`)) return;
+  if(!confirm(`¿Quitar a ${order?.name||"este cliente"} de esta ruta?\n\nNo se eliminará el cliente ni el pedido de la aplicación; solo se quitará de esta ruta.`)) return;
 
   route.stops=(route.stops||[]).filter(s=>String(s.orderId)!==String(id));
   route.optimizedOrderIds=(route.optimizedOrderIds||[]).filter(x=>String(x)!==String(id));
