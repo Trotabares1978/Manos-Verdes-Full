@@ -116,7 +116,7 @@ INJECTION = r"""
     card.className = "card";
     card.id = "mvf-route-stop-editor";
     card.innerHTML = '<h3 style="margin-top:0">✏️ Editar paradas de esta ruta</h3>' +
-      '<p class="muted">Quitá paradas o agregá una dirección nueva. Después tocá “Reoptimizar” para recalcular desde tu ubicación actual hasta el destino final guardado.</p>' +
+      '<p class="muted">Quitá paradas o agregá una dirección nueva. Después tocá “Optimizar paradas restantes desde mi ubicación” para recalcular desde tu ubicación actual hasta el destino final guardado.</p>' +
       '<label for="mvf-custom-stop-input">➕ Agregar una parada nueva</label>' +
       '<div class="route-address-wrap"><input id="mvf-custom-stop-input" placeholder="Buscá una dirección en Google Maps" autocomplete="off">' +
       '<button type="button" class="route-clear-btn" onclick="document.getElementById(\'mvf-custom-stop-input\').value=\'\';document.getElementById(\'mvf-custom-stop-input\').dataset.lat=\'\';document.getElementById(\'mvf-custom-stop-input\').dataset.lng=\'\';" title="Borrar dirección">✕</button></div>' +
