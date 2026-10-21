@@ -14,7 +14,7 @@ INJECTION = r"""
   window.__mvFullEditableRoutesInstalled = true;
 
   function activeRoute() {
-    return (window.routeTemplates || []).find(r => String(r.id) === String(window.activeRouteId));
+    return (typeof routeTemplates !== "undefined" ? routeTemplates : []).find(r => String(r.id) === String(activeRouteId));
   }
 
   function invalidateOptimization(route) {
