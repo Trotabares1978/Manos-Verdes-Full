@@ -137,10 +137,14 @@ INJECTION = r"""
         const id = String(s.orderId ?? s.customId ?? s.id ?? "");
         const name = String(s.name || s.address || "Parada").replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
         const address = String(s.address || "").replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[ch]));
-        const safeId = id.replace(/\\\\/g, "\\\\\\\\").replace(/'/g, "\\\\'");
         return '<div class="stock-row"><span><b>' + (i + 1) + '. ' + name + '</b><br><small>📍 ' + address + (id.startsWith("custom-") ? ' · Parada agregada' : '') + '</small></span>' +
-          '<button type="button" class="danger small" onclick="removeEditableRouteStop(\\'' + safeId + '\\')" aria-label="Eliminar parada">✕</button></div>';
+          '<button type="button" class="danger small" data-stop-id="' + encodeURIComponent(id) + '" aria-label="Eliminar parada">✕</button></div>';
       }).join("");
+      list.querySelectorAll("[data-stop-id]").forEach(button => {
+        button.addEventListener("click", () => {
+          window.removeEditableRouteStop(decodeURIComponent(button.dataset.stopId || ""));
+        });
+      });
     }
 
     if (typeof window.setupRouteAutocomplete === "function") {
