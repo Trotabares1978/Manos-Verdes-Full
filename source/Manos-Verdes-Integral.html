@@ -1,0 +1,1763 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Manos Verdes Integral</title>
+<style>
+:root{--g:#176b3a;--g2:#2d934f;--cream:#f6f1e5;--ink:#183326;--muted:#68776e;--line:#dce5de;--white:#fff;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+.app{max-width:760px;margin:auto;min-height:100vh}.top{background:linear-gradient(135deg,#155f35,#2f9650);color:#fff;padding:14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px #0002}
+.brand{display:flex;align-items:center;gap:11px}.brand img{width:52px;height:52px;border-radius:13px;object-fit:cover}.brand h1{font-size:20px;margin:0}.sub{font-size:12px;opacity:.88}
+nav{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:12px}nav button{border:0;border-radius:10px;padding:9px 2px;background:#ffffff22;color:#fff;font-weight:800;font-size:11px}nav button.active{background:#fff;color:var(--g)}
+main{padding:14px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #174b2310}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left}.tile b{display:block;font-size:23px}.tile span{color:var(--muted);font-size:13px}
+h2{font-size:20px;margin:4px 0 12px}.muted{color:var(--muted);font-size:13px}.between{display:flex;justify-content:space-between;align-items:center;gap:10px}.total{font-size:28px;font-weight:900;margin:12px 0}.badge{background:#e4f4e9;color:var(--g);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
+button.primary,button.secondary,button.danger{border:0;border-radius:11px;padding:12px 14px;font-weight:800}.primary{background:var(--g);color:#fff}.secondary{background:#edf4ef;color:var(--g)}.danger{background:#fbe9e7;color:var(--red)}.small{padding:8px 10px!important;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+input,select,textarea{width:100%;border:1px solid #cfdad2;border-radius:10px;padding:11px;background:#fff;font:inherit}.address-wrap{position:relative}.address-status{font-size:12px;margin-top:6px}.address-ok{color:var(--g)}.address-warn{color:#9a6700}.address-error{color:var(--red)}gmp-place-autocomplete{display:block;width:100%}textarea{min-height:70px}label{display:block;font-size:12px;font-weight:800;margin:10px 0 5px}
+.product{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:10px 0}.qty{display:flex;align-items:center;gap:7px}.qty button{width:34px;height:34px;border:0;border-radius:9px;background:#e8f2eb;color:var(--g);font-size:18px;font-weight:900}
+.order{border-top:1px solid var(--line);padding:12px 0}.stock-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.empty{text-align:center;color:var(--muted);padding:24px}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:50}.modal.open{display:flex}.sheet{background:#fff;width:min(760px,100%);border-radius:20px 20px 0 0;padding:18px;max-height:90vh;overflow:auto}@media(min-width:600px){.modal{align-items:center}.sheet{border-radius:20px}}
+</style>
+<style>
+.route-address-wrap{position:relative;display:flex;align-items:center}
+.route-address-wrap input{width:100%;padding-right:44px !important}
+.route-clear-btn{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;border-radius:50%;background:#e9eceb;color:#555;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3}
+.route-clear-btn:hover{background:#d9dddb}
+#route-optimized-map{width:100%;height:320px;min-height:320px;background:#e9efea}
+#route-optimized-map img{max-width:none}
+.route-stop-result{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 8px;border-bottom:1px solid var(--line)}
+.route-stop-info{flex:1;min-width:0}
+.route-stop-gps{flex:0 0 auto}
+.route-stop-gps button{white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+ <div class="brand"><img src="icon.png"><div><h1>Manos Verdes Integral</h1><div class="sub">Pedidos · Stock · Ruta · Reparto</div></div></div>
+ <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+</div>
+<div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
+<script src="geo-bridge.bundle.js"></script>
+<script>
+// Google Maps / Places: reutilizamos la misma clave que ya funciona en Ruteroide.
+const GOOGLE_MAPS_API_KEY = "AIzaSyBYY5lur071mAPKo75CbhLCCfo8yIwXFrc";
+let googlePlacesReady = false;
+let googlePlacesLoading = null;
+
+// Google Maps llama a esta función mediante callback cuando la API terminó de cargar.
+// Es el mismo mecanismo que usa Ruteroide y es más fiable en el WebView de Android.
+window.initManosVerdesMaps = function(){
+  googlePlacesReady=!!window.google?.maps?.places;
+  if(googlePlacesReady){
+    document.dispatchEvent(new Event('mvi-google-ready'));
+  }
+};
+
+function loadGooglePlaces(){
+  if(googlePlacesReady && window.google?.maps?.places) return Promise.resolve(true);
+  if(googlePlacesLoading) return googlePlacesLoading;
+
+  googlePlacesLoading=new Promise((resolve)=>{
+    const finish=(ok)=>{
+      googlePlacesReady=!!ok && !!window.google?.maps?.places;
+      resolve(googlePlacesReady);
+    };
+
+    document.addEventListener('mvi-google-ready',()=>finish(true),{once:true});
+
+    if(window.google?.maps?.places){
+      finish(true);
+      return;
+    }
+
+    const script=document.createElement('script');
+    script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(GOOGLE_MAPS_API_KEY)+'&libraries=places,geometry&callback=initManosVerdesMaps';
+    script.async=true;
+    script.defer=true;
+    script.dataset.googleMaps='mvi';
+    script.onerror=()=>finish(false);
+    document.head.appendChild(script);
+
+    // Si Google rechaza la clave/API, no dejamos la promesa colgada indefinidamente.
+    setTimeout(()=>{
+      if(!googlePlacesReady) finish(false);
+    },10000);
+  });
+  return googlePlacesLoading;
+}
+
+async function setupAddressAutocomplete(existingAddress="", existingLat=null, existingLng=null, existingPlaceId=""){
+  const input=document.getElementById('f-address');
+  const status=document.getElementById('address-status');
+  if(!input) return;
+
+  input.value=existingAddress||'';
+  input.dataset.lat=existingLat!=null?existingLat:'';
+  input.dataset.lng=existingLng!=null?existingLng:'';
+  input.dataset.placeId=existingPlaceId||'';
+  document.getElementById('f-address-lat').value=existingLat!=null?existingLat:'';
+  document.getElementById('f-address-lng').value=existingLng!=null?existingLng:'';
+  document.getElementById('f-address-place-id').value=existingPlaceId||'';
+
+  const ready=await loadGooglePlaces();
+  if(!ready){
+    status.className='address-status address-warn';
+    status.textContent='Google Maps no pudo cargarse. Podés escribir la dirección manualmente.';
+    return;
+  }
+
+  try{
+    const options={
+      componentRestrictions:{country:'ar'},
+      fields:['formatted_address','geometry','place_id','name']
+    };
+    const autocomplete=new google.maps.places.Autocomplete(input,options);
+
+    autocomplete.addListener('place_changed',()=>{
+      const place=autocomplete.getPlace();
+      if(place && place.formatted_address){
+        input.value=place.formatted_address;
+        input.dataset.lat=place.geometry?.location?.lat?.() ?? '';
+        input.dataset.lng=place.geometry?.location?.lng?.() ?? '';
+        input.dataset.placeId=place.place_id||'';
+        document.getElementById('f-address-lat').value=input.dataset.lat;
+        document.getElementById('f-address-lng').value=input.dataset.lng;
+        document.getElementById('f-address-place-id').value=input.dataset.placeId;
+        status.className='address-status address-ok';
+        status.textContent='📍 Dirección confirmada por Google Maps.';
+      }else{
+        input.dataset.lat='';
+        input.dataset.lng='';
+        input.dataset.placeId='';
+        status.className='address-status address-warn';
+        status.textContent='Elegí una sugerencia de Google para guardar la ubicación exacta.';
+      }
+    });
+
+    input.addEventListener('input',()=>{
+      // Si el usuario modifica una dirección después de seleccionarla,
+      // ya no conservamos las coordenadas anteriores.
+      input.dataset.lat='';
+      input.dataset.lng='';
+      input.dataset.placeId='';
+      document.getElementById('f-address-lat').value='';
+      document.getElementById('f-address-lng').value='';
+      document.getElementById('f-address-place-id').value='';
+      status.className='address-status address-warn';
+      status.textContent='Elegí una sugerencia de Google para confirmar la dirección.';
+    });
+
+    status.className='address-status '+(existingLat!=null&&existingLng!=null?'address-ok':'address-warn');
+    status.textContent=existingLat!=null&&existingLng!=null
+      ? '📍 Dirección guardada con ubicación.'
+      : 'Escribí y elegí una sugerencia de Google Maps.';
+  }catch(err){
+    status.className='address-status address-error';
+    status.textContent='No se pudo activar la búsqueda de Google Maps. Podés escribir la dirección manualmente.';
+  }
+}
+
+function preserveOrderForm(){
+  const data={};
+  const ids=['f-name','f-address','f-phone','f-payment'];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)data[id]=el.value;
+  });
+  const address=document.getElementById('f-address');
+  if(address){
+    data['f-address-lat']=address.dataset.lat||'';
+    data['f-address-lng']=address.dataset.lng||'';
+    data['f-address-place-id']=address.dataset.placeId||'';
+  }
+  return data;
+}
+
+const PRODUCTS_DEFAULT=[
+["Bolsón n°1",12000,"n1"],["Bolsón n°2",10000,"n2"],["Bolsón n°3",15000,"n3"],["Bolsón de frutas",10000,"fruta"],
+["Miel",8000,"miel"],["Huevos comunes",7000,"hcom"],["Huevos comunes x 2",13000,"hcom2"],["Huevos Caseros",10000,"hcas"],["Huevos Agroecológicos",12000,"hagr"],
+["Cremoso Cremac x 2kg",18000,"cc2"],["Cremoso Cremac x 4kg",36000,"cc4"],["Sardo Fresco x 1,5kg",18000,"sf15"],["Sardo Fresco x 3kg",36000,"sf3"],["Sardo Cremac x 1,8kg",36000,"sc18"],
+["Promo 1-2-Fruta",31000,"promo12f"],["Promo Los 3 de verdura",35000,"promo3v"],["Promo Los 4 bolsones",45000,"promo4"]];
+// La lista de precios es independiente de los pedidos ya guardados.
+let PRODUCTS=load("mvi_products",PRODUCTS_DEFAULT.map(p=>[...p]));
+if(!Array.isArray(PRODUCTS)||PRODUCTS.length!==PRODUCTS_DEFAULT.length){PRODUCTS=PRODUCTS_DEFAULT.map(p=>[...p]);}
+const PROMO_STOCK={promo12f:{n1:1,n2:1,fruta:1},promo3v:{n1:1,n2:1,n3:1},promo4:{n1:1,n2:1,n3:1,fruta:1}};
+const PHYSICAL={n1:"Bolsón n°1",n2:"Bolsón n°2",n3:"Bolsón n°3",fruta:"Bolsón de frutas",miel:"Miel",hcom:"Huevos comunes",hcom2:"Huevos comunes x 2",hcas:"Huevos Caseros",hagr:"Huevos Agroecológicos",cc2:"Cremoso Cremac x 2kg",cc4:"Cremoso Cremac x 4kg",sf15:"Sardo Fresco x 1,5kg",sf3:"Sardo Fresco x 3kg",sc18:"Sardo Cremac x 1,8kg"};
+let orders=load("mvi_orders",[]), history=load("mvi_history",[]), debts=load("mvi_debts",[]), clients=load("mvi_clients",[]), routeTemplates=load("mvi_route_templates",[]), activeRouteId=load("mvi_active_route",null), page="inicio", cart=[], editing=null;
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+function save(){
+  localStorage.setItem("mvi_orders",JSON.stringify(orders));
+  localStorage.setItem("mvi_history",JSON.stringify(history));
+  localStorage.setItem("mvi_debts",JSON.stringify(debts));
+  localStorage.setItem("mvi_clients",JSON.stringify(clients));
+  localStorage.setItem("mvi_route_templates",JSON.stringify(routeTemplates));
+  localStorage.setItem("mvi_active_route",JSON.stringify(activeRouteId));
+  localStorage.setItem("mvi_products",JSON.stringify(PRODUCTS));
+}
+function money(n){return "$"+Number(n||0).toLocaleString("es-AR")}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function nav(){
+  let a=[
+    ["inicio","🏠 Inicio"],
+    ["pedidos","🛒 Pedidos"],
+    ["ruta","🗺️ Ruta"],
+    ["stock","📦 Stock"],
+    ["historial","📚 Historial"],
+    ["deudas","💳 Deudas"]
+  ];
+  document.getElementById("nav").innerHTML=a.map(x=>`<button class="${page==x[0]?"active":""}" onclick="go('${x[0]}')">${x[1]}</button>`).join("");
+}
+function go(x){page=x;render();scrollTo(0,0)}
+function render(){
+  nav();
+  let m=document.getElementById("main");
+  if(page=="inicio")home(m);
+  if(page=="pedidos")ordersPage(m);
+  if(page=="ruta")routePage(m);
+  if(page=="stock")stockPage(m);
+  if(page=="historial")historyPage(m);
+  if(page=="deudas")debtsPage(m);
+}
+function home(m){
+  let p=orders.filter(o=>!o.delivered).length;
+  let t=orders.reduce((s,o)=>s+o.total,0);
+  let r=routeTemplates.length;
+
+  m.innerHTML=`
+    <div class="card">
+      <div class="between">
+        <div>
+          <h2>Reparto actual</h2>
+          <div class="muted">Pedidos cargados</div>
+        </div>
+        <span class="badge">${p} pendientes de entrega</span>
+      </div>
+
+      <div class="total">${money(t)}</div>
+
+      <div class="actions">
+        <button class="primary" onclick="newOrder()">➕ Nuevo pedido</button>
+        <button class="secondary" onclick="go('ruta')">🗺️ Preparar ruta</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <button class="tile" onclick="go('pedidos')">
+        <b>🛒</b><span>Pedidos</span>
+      </button>
+
+      <button class="tile" onclick="go('stock')">
+        <b>📦</b><span>Stock</span>
+      </button>
+
+      <button class="tile" onclick="locationPermission()">
+        <b>📍</b><span>Probar ubicación</span>
+      </button>
+
+      <button class="tile" onclick="go('historial')">
+        <b>📚</b><span>Historial</span>
+      </button>
+
+      <button class="tile" onclick="go('ruta')">
+        <b>🗺️</b><span>Rutas guardadas: ${r}</span>
+      </button>
+
+      <button class="tile" onclick="go('deudas')">
+        <b>💳</b><span>Deudas: ${debts.filter(d=>!d.paid).length}</span>
+      </button>
+    </div>
+  `;
+}
+function ordersPage(m){
+  let a=[...orders].sort((x,y)=>String(x.name||"").localeCompare(String(y.name||""),"es",{sensitivity:"base"}));
+
+  m.innerHTML=`
+    <div class="between">
+      <h2>Pedidos</h2>
+      <button class="primary" onclick="newOrder()">➕ Nuevo</button>
+    </div>
+
+    ${a.length ? a.map(o=>`
+      <div class="card order">
+        <div class="between">
+          <div>
+            <b>${esc(o.name)}</b>
+            <div class="muted">📍 ${esc(o.address)}</div>
+          </div>
+          <b>${money(o.total)}</b>
+        </div>
+
+        <div class="muted" style="margin:7px 0">
+          ${o.items.map(i=>`${i.qty} × ${esc(i.name)}`).join(" · ")}
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+          <span class="badge" style="${o.payment==="Pagado" ? "" : "background:#fff3cd;color:#856404"}">
+            💰 ${o.payment==="Pagado" ? "Pagado" : "Pago pendiente"}
+          </span>
+
+          <span class="badge" style="${o.delivered ? "" : "background:#fff3cd;color:#856404"}">
+            🚚 ${o.delivered ? "Entregado" : "Pendiente de entrega"}
+          </span>
+        </div>
+
+        <div class="actions">
+          <button
+            class="${o.payment==="Pagado" ? "secondary" : "primary"} small"
+            onclick="togglePaid('${o.id}')">
+            ${o.payment==="Pagado" ? "↩️ Marcar pendiente" : "💰 Marcar pagado"}
+          </button>
+
+          <button
+            class="${o.delivered ? "secondary" : "primary"} small"
+            onclick="toggleDelivered('${o.id}')">
+            ${o.delivered ? "↩️ Marcar pendiente" : "🚚 Marcar entregado"}
+          </button>
+
+          <button class="secondary small" onclick="editOrder('${o.id}')">
+            ✏️ Editar
+          </button>
+
+          ${o.phone ? `<button class="secondary small" onclick="wa('${o.phone}')">💬 WhatsApp</button>` : ""}
+
+          <button
+            class="danger small"
+            title="Eliminar pedido"
+            onclick="deleteOrder('${o.id}')">
+            ✕ Eliminar
+          </button>
+        </div>
+      </div>
+    `).join("") : `
+      <div class="card empty">Todavía no hay pedidos.</div>
+    `}
+
+    <div class="card">
+      <button class="danger" onclick="finalize()">🏁 Finalizar reparto</button>
+    </div>
+  `;
+}
+
+function newOrder(){cart=[];editing=null;openOrder()}
+function editOrder(id){editing=orders.find(o=>o.id==id);if(!editing)return;cart=editing.items.map(i=>({...i}));openOrder()}
+function openOrder(preserved=null){
+  const total=cart.reduce((s,i)=>s+i.qty*i.price,0);
+  const saved=preserved || {
+    'f-name':editing?.name||'',
+    'f-address':editing?.address||'',
+    'f-phone':editing?.phone||'',
+    'f-payment':editing?.payment||'Pendiente',
+    'f-address-lat':editing?.lat ?? '',
+    'f-address-lng':editing?.lng ?? '',
+    'f-address-place-id':editing?.placeId || ''
+  };
+
+  document.getElementById('sheet').innerHTML=`
+    <h2>${editing?'Editar pedido':'Nuevo pedido'}</h2>
+    <label>Nombre *</label>
+    <input id="f-name" value="${esc(saved['f-name']||'')}">
+
+    <label>Dirección *</label>
+    <div class="address-wrap">
+      <input id="f-address" value="${esc(saved['f-address']||'')}" placeholder="Escribí la dirección y elegí una sugerencia de Google Maps" autocomplete="off">
+      <div class="actions" style="margin-top:8px">
+        <button type="button" class="secondary small" onclick="saveClientFromForm()">💾 Guardar cliente y dirección</button>
+        <button type="button" class="secondary small" onclick="showClientPicker()">👤 Añadir cliente</button>
+      </div>
+      <input id="f-address-lat" type="hidden" value="${esc(saved['f-address-lat']||'')}">
+      <input id="f-address-lng" type="hidden" value="${esc(saved['f-address-lng']||'')}">
+      <input id="f-address-place-id" type="hidden" value="${esc(saved['f-address-place-id']||'')}">
+      <div id="address-status" class="address-status"></div>
+    </div>
+
+    <label>Teléfono</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="f-phone" value="${esc(saved['f-phone']||'')}" style="flex:1">
+      <button type="button" id="btnPickContact" class="secondary small"
+        onclick="pickClientContact()"
+        style="white-space:nowrap"
+        title="Elegir un contacto de la agenda">
+        📱 Agenda
+      </button>
+    </div>
+
+    <label>Pago</label>
+    <select id="f-payment"><option ${saved['f-payment']!='Pagado'?'selected':''}>Pendiente</option><option ${saved['f-payment']=='Pagado'?'selected':''}>Pagado</option></select>
+
+    <h3>Productos</h3>
+    ${PRODUCTS.map(p=>{let q=cart.find(i=>i.id==p[2])?.qty||0;return `<div class="product"><div><b>${p[0]}</b><div class="muted">${money(p[1])}</div></div><div class="qty"><button type="button" onclick="changeCart('${p[2]}',-1)">−</button><b>${q}</b><button type="button" onclick="changeCart('${p[2]}',1)">+</button></div></div>`}).join('')}
+    <div class="total">Total: ${money(total)}</div>
+    <div class="actions"><button type="button" class="primary" onclick="saveOrder()">💾 Guardar pedido</button><button type="button" class="secondary" onclick="closeModal()">Cancelar</button></div>`;
+
+  document.getElementById('modal').classList.add('open');
+  setupAddressAutocomplete(
+    saved['f-address']||'',
+    saved['f-address-lat']!==''?Number(saved['f-address-lat']):null,
+    saved['f-address-lng']!==''?Number(saved['f-address-lng']):null,
+    saved['f-address-place-id']||''
+  );
+}
+
+function currentClientFromForm(){
+  const name=document.getElementById('f-name')?.value.trim()||'';
+  const addressEl=document.getElementById('f-address');
+  const address=addressEl?.value.trim()||'';
+  const phone=document.getElementById('f-phone')?.value.trim()||'';
+  const lat=document.getElementById('f-address-lat')?.value||addressEl?.dataset.lat||'';
+  const lng=document.getElementById('f-address-lng')?.value||addressEl?.dataset.lng||'';
+  const placeId=document.getElementById('f-address-place-id')?.value||addressEl?.dataset.placeId||'';
+  return {
+    id:'', name, address, phone,
+    lat:lat!==''?Number(lat):null,
+    lng:lng!==''?Number(lng):null,
+    placeId
+  };
+}
+
+function saveClientFromForm(){
+  const c=currentClientFromForm();
+  if(!c.name||!c.address){
+    alert('Completá primero el nombre y la dirección del cliente.');
+    return;
+  }
+
+  const existing=clients.find(x=>
+    String(x.name||'').trim().toLowerCase()===c.name.toLowerCase()
+  );
+
+  if(existing){
+    if(!confirm(`Ya existe un cliente llamado "${existing.name}". ¿Querés actualizar sus datos?`)) return;
+    existing.address=c.address;
+    existing.phone=c.phone;
+    existing.lat=c.lat;
+    existing.lng=c.lng;
+    existing.placeId=c.placeId;
+  }else{
+    clients.push({...c,id:'c'+Date.now().toString()});
+  }
+
+  clients.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
+  save();
+  alert(existing?'Cliente actualizado correctamente.':'Cliente guardado correctamente.');
+}
+
+function showClientPicker(){
+  if(!clients.length){
+    alert('Todavía no hay clientes guardados. Primero guardá un cliente y su dirección.');
+    return;
+  }
+
+  const ordered=[...clients].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
+
+  document.getElementById('sheet').innerHTML=`
+    <h2>👤 Añadir cliente</h2>
+    <div class="muted" style="margin-bottom:12px">Elegí un cliente para completar automáticamente sus datos.</div>
+    <input id="client-search" placeholder="🔎 Buscar cliente..." oninput="filterClientPicker()">
+    <div id="client-picker-list" style="margin-top:10px">
+      ${ordered.map(c=>clientPickerRow(c)).join('')}
+    </div>
+    <div class="actions" style="margin-top:14px">
+      <button type="button" class="secondary" onclick="openOrder()">Cancelar</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function clientPickerRow(c){
+  return `<button type="button" class="secondary" style="display:block;width:100%;text-align:left;margin-bottom:8px" onclick="selectClient('${esc(c.id)}')">
+    <b>${esc(c.name)}</b><br>
+    <span class="muted">📍 ${esc(c.address||'Sin dirección')}</span>${c.phone?`<br><span class="muted">📞 ${esc(c.phone)}</span>`:''}
+  </button>`;
+}
+
+function filterClientPicker(){
+  const q=(document.getElementById('client-search')?.value||'').trim().toLowerCase();
+  const list=document.getElementById('client-picker-list');
+  if(!list)return;
+  const filtered=[...clients]
+    .filter(c=>String(c.name||'').toLowerCase().includes(q) || String(c.address||'').toLowerCase().includes(q))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
+  list.innerHTML=filtered.length?filtered.map(clientPickerRow).join(''):`<div class="empty">No encontré ese cliente.</div>`;
+}
+
+function selectClient(id){
+  const c=clients.find(x=>x.id==id);
+  if(!c)return;
+
+  // Si venimos del selector, volvemos a construir el pedido conservando los productos ya elegidos.
+  const preserved=preserveOrderForm();
+  preserved['f-name']=c.name||'';
+  preserved['f-address']=c.address||'';
+  preserved['f-phone']=c.phone||'';
+  preserved['f-address-lat']=c.lat!=null?c.lat:'';
+  preserved['f-address-lng']=c.lng!=null?c.lng:'';
+  preserved['f-address-place-id']=c.placeId||'';
+  closeModal();
+  openOrder(preserved);
+}
+
+function changeCart(id,d){
+  const form=preserveOrderForm();
+  const p=PRODUCTS.find(x=>x[2]==id),i=cart.findIndex(x=>x.id==id);
+  if(i<0&&d>0)cart.push({id:p[2],name:p[0],price:p[1],qty:1});
+  else if(i>=0){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1)}
+  openOrder(form);
+}
+
+function saveOrder(){
+  const name=document.getElementById('f-name')?.value.trim()||'';
+  const addressEl=document.getElementById('f-address');
+  const address=addressEl?.value.trim()||'';
+
+  if(!name||!address||!cart.length){
+    alert('Completá nombre, dirección y al menos un producto.');
+    return;
+  }
+
+  const lat=document.getElementById('f-address-lat')?.value||addressEl?.dataset.lat||'';
+  const lng=document.getElementById('f-address-lng')?.value||addressEl?.dataset.lng||'';
+  const placeId=document.getElementById('f-address-place-id')?.value||addressEl?.dataset.placeId||'';
+
+  const wasEditing=!!editing;
+
+  const o={
+    id:editing?.id||Date.now().toString(),
+    name,
+    address,
+    phone:document.getElementById('f-phone')?.value.trim()||'',
+    payment:document.getElementById('f-payment')?.value||'Pendiente',
+    lat:lat!==''?Number(lat):null,
+    lng:lng!==''?Number(lng):null,
+    placeId,
+    items:cart.map(i=>({...i})),
+    total:cart.reduce((s,i)=>s+i.qty*i.price,0),
+    delivered:editing?.delivered||false
+  };
+
+  if(wasEditing){
+    orders[orders.findIndex(x=>x.id==editing.id)]=o;
+  }else{
+    orders.push(o);
+  }
+
+  save();
+
+  if(wasEditing){
+    closeModal();
+    go('pedidos');
+    return;
+  }
+
+  cart=[];
+  editing=null;
+  openOrder();
+}
+
+function togglePaid(id){
+  const o=orders.find(x=>x.id==id);
+  if(!o)return;
+
+  o.payment=o.payment==="Pagado" ? "Pendiente" : "Pagado";
+
+  save();
+  render();
+}
+
+function toggleDelivered(id){
+  const o=orders.find(x=>x.id==id);
+  if(!o)return;
+
+  o.delivered=!o.delivered;
+
+  save();
+  render();
+}
+
+function deleteOrder(id){
+  const o=orders.find(x=>x.id==id);
+  if(!o)return;
+
+  if(!confirm(`¿Deseás eliminar el pedido de ${o.name}?`)) return;
+
+  orders=orders.filter(x=>x.id!==id);
+
+  // También lo quitamos de las rutas guardadas para evitar paradas fantasma.
+  routeTemplates.forEach(r=>{
+    r.stops=(r.stops||[]).filter(s=>{
+      if(s.orderId) return s.orderId!==id;
+      return !(String(s.name||"").toLowerCase()===String(o.name||"").toLowerCase() &&
+               String(s.address||"").toLowerCase()===String(o.address||"").toLowerCase());
+    });
+    if(r.optimizedOrderIds) {
+      r.optimizedOrderIds=r.optimizedOrderIds.filter(x=>x!==id);
+    }
+  });
+
+  save();
+  render();
+}
+function wa(phone){let n=phone.replace(/\D/g,"");if(n.startsWith("0"))n="54"+n.slice(1);if(!n.startsWith("54"))n="54"+n;location.href="https://wa.me/"+n}
+function stockPage(m){
+  let need={};
+  orders.forEach(o=>o.items.forEach(i=>{
+    if(PROMO_STOCK[i.id])Object.entries(PROMO_STOCK[i.id]).forEach(([k,v])=>need[k]=(need[k]||0)+i.qty*v);
+    else need[i.id]=(need[i.id]||0)+i.qty;
+  }));
+  let rows=Object.entries(need).filter(x=>PHYSICAL[x[0]]);
+
+  m.innerHTML=`
+    <h2>📦 Stock</h2>
+    <div class="card">
+      <h3 style="margin:0">💰 Administrar precios</h3>
+      <div class="muted">Modificá los precios por aumentos, rebajas o promociones. Los pedidos ya guardados conservan su precio.</div>
+      <div class="actions" style="margin:12px 0">
+        <button class="secondary small" onclick="adjustAllPrices()">📈 Ajustar todos por %</button>
+        <button class="secondary small" onclick="resetPrices()">↩️ Restaurar iniciales</button>
+      </div>
+      ${PRODUCTS.map(p=>`
+        <div class="stock-row" style="gap:10px;align-items:center">
+          <span style="flex:1"><b>${esc(p[0])}</b></span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span>$</span>
+            <input id="price-${esc(p[2])}" type="number" min="0" step="100" value="${Number(p[1]||0)}" style="width:115px;text-align:right">
+            <button class="primary small" onclick="saveProductPrice('${esc(p[2])}')">Guardar</button>
+          </div>
+        </div>`).join("")}
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">📊 Stock necesario</h3>
+      ${rows.length?rows.map(x=>`<div class="stock-row"><span>${PHYSICAL[x[0]]}</span><b>${x[1]}</b></div>`).join(""):`<div class="empty">Todavía no hay pedidos.</div>`}
+    </div>
+    <div class="card"><b>Promociones = productos físicos</b><div class="muted">Promo 1-2-fruta → Nº1 + Nº2 + fruta. Los 3 de verdura → Nº1 + Nº2 + Nº3. Los 4 bolsones → Nº1 + Nº2 + Nº3 + fruta.</div></div>
+  `;
+}
+function saveProductPrice(id){
+  const p=PRODUCTS.find(x=>x[2]===id), input=document.getElementById('price-'+id);
+  if(!p||!input)return;
+  const value=Math.round(Number(input.value||0));
+  if(!Number.isFinite(value)||value<0){alert('Ingresá un precio válido.');return;}
+  p[1]=value; save(); alert(`${p[0]}: nuevo precio ${money(value)}.`); stockPage(document.getElementById('main'));
+}
+function adjustAllPrices(){
+  const raw=prompt('¿Qué porcentaje querés aplicar a TODOS los precios? Ej.: 10 para aumentar 10% o -10 para bajar 10%.');
+  if(raw===null)return;
+  const pct=Number(String(raw).replace(',','.'));
+  if(!Number.isFinite(pct)||pct<=-100){alert('Ingresá un porcentaje válido mayor a -100%.');return;}
+  if(!confirm(`Se aplicará ${pct>0?'+':''}${pct}% a todos los precios. ¿Continuar?`))return;
+  PRODUCTS.forEach(p=>p[1]=Math.round(Number(p[1]||0)*(1+pct/100)/100)*100);
+  save(); stockPage(document.getElementById('main'));
+}
+function resetPrices(){
+  if(!confirm('¿Restaurar todos los precios iniciales? Los pedidos existentes NO cambiarán.'))return;
+  PRODUCTS=PRODUCTS_DEFAULT.map(p=>[...p]); save(); stockPage(document.getElementById('main'));
+}
+
+async function locationPermission(){try{let p=await window.RuteroideGeo.getCurrentPosition();alert("Ubicación obtenida correctamente.\\nLatitud: "+p.coords.latitude.toFixed(6)+"\\nLongitud: "+p.coords.longitude.toFixed(6))}catch(e){alert(window.RuteroideGeo.getErrorMessage(e))}}
+function routePage(m){
+  const pending=orders.filter(o=>!o.delivered);
+  const active=routeTemplates.find(r=>r.id===activeRouteId)||null;
+  const routeOrders=active
+    ? (active.optimizedOrderIds?.length
+        ? active.optimizedOrderIds.map(id=>pending.find(o=>String(o.id)===String(id))).filter(Boolean)
+        : (active.stops||[]).map(s=>pending.find(o=>String(o.id)===String(s.orderId))).filter(Boolean))
+    : [];
+  const routeIds=new Set(routeOrders.map(o=>String(o.id)));
+
+  m.innerHTML=`
+    <div class="between">
+      <h2>🗺️ Rutas y optimizador</h2>
+      ${active?`<button class="primary small" onclick="saveCurrentRoute()">💾 Guardar ruta</button>`:""}
+    </div>
+
+    <div class="card">
+      <div class="between">
+        <div>
+          <b>${active?"🚚 Ruta activa: "+esc(active.name):"🆕 Nueva ruta"}</b>
+          <div class="muted">${active?routeOrders.length+" pedidos seleccionados":"Creá la ruta y después elegí qué pedidos agregar."}</div>
+        </div>
+        ${active?`<button class="secondary small" onclick="clearActiveRoute()">✖ Cerrar</button>`:""}
+      </div>
+
+      ${active?`
+        <label>📍 Dirección inicial</label>
+        <div class="route-address-wrap">
+          <input id="route-origin" value="${esc(active.start?.label||active.origin||"")}" placeholder="Dirección de salida" autocomplete="off">
+          <button type="button" class="route-clear-btn" onclick="clearRouteField('route-origin','route-origin-status')" title="Borrar dirección">✕</button>
+        </div>
+        <div id="route-origin-status" class="address-status"></div>
+
+        <label>🏁 Punto de llegada</label>
+        <div class="route-address-wrap">
+          <input id="route-destination" value="${esc(active.end?.label||active.destination||"")}" placeholder="Dirección de llegada" autocomplete="off">
+          <button type="button" class="route-clear-btn" onclick="clearRouteField('route-destination','route-destination-status')" title="Borrar dirección">✕</button>
+        </div>
+        <div id="route-destination-status" class="address-status"></div>
+
+        <div class="actions" style="margin-top:12px">
+          <button class="primary" onclick="optimizeActiveRoute()">🚀 Optimizar paradas</button>
+          <button class="secondary" onclick="saveRouteEndpoints()">💾 Guardar inicio/llegada</button>
+          <button class="secondary" onclick="reoptimizeFromCurrentLocation()">📍 Optimizar paradas restantes desde mi ubicación</button>
+        </div>
+
+        <div id="route-optimized-result" style="display:none;margin-top:14px">
+          <h3 style="margin:0 0 8px">🗺️ Ruta optimizada</h3>
+          <div id="route-optimized-map"
+               style="width:100%;height:320px;min-height:320px;border-radius:12px;border:1px solid #ddd;overflow:hidden;background:#e9efea"></div>
+          <div id="route-optimized-metrics" class="muted" style="margin-top:8px;font-weight:600"></div>
+          <div id="route-optimized-list" style="margin-top:10px"></div>
+        </div>
+      `:`
+        <label>📝 Nombre de la ruta</label>
+        <input id="route-new-name" placeholder="Ej.: Reparto Ensenada">
+
+        <label>📍 Dirección inicial</label>
+        <div class="route-address-wrap">
+          <input id="route-new-origin" placeholder="Depósito, domicilio o lugar de salida" autocomplete="off">
+          <button type="button" class="route-clear-btn" onclick="clearRouteField('route-new-origin','route-new-origin-status')" title="Borrar dirección">✕</button>
+        </div>
+        <div id="route-new-origin-status" class="address-status"></div>
+
+        <label>🏁 Punto de llegada</label>
+        <div class="route-address-wrap">
+          <input id="route-new-destination" placeholder="Depósito, domicilio o última dirección" autocomplete="off">
+          <button type="button" class="route-clear-btn" onclick="clearRouteField('route-new-destination','route-new-destination-status')" title="Borrar dirección">✕</button>
+        </div>
+        <div id="route-new-destination-status" class="address-status"></div>
+
+        <div class="actions" style="margin-top:12px">
+          <button class="primary" onclick="createRouteFromPage()">💾 Crear ruta</button>
+        </div>
+      `}
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">📦 Pedidos seleccionados para esta ruta</h3>
+      ${active&&routeOrders.length
+        ? routeOrders.map((o,i)=>`
+          <div class="stock-row">
+            <span><b>${i+1}. ${esc(o.name)}</b><br><small>📍 ${esc(o.address)}</small></span>
+            <button class="danger small" onclick="removeOrderFromActiveRoute('${o.id}')">✖ Quitar</button>
+          </div>`).join("")
+        : `<div class="empty">${active?"Todavía no agregaste pedidos a esta ruta.":"Primero creá la ruta."}</div>`}
+    </div>
+
+    <div class="card">
+      <div class="between">
+        <h3 style="margin-top:0">📋 Pedidos pendientes disponibles</h3>
+        <span class="badge">${pending.length}</span>
+      </div>
+      <div class="muted" style="margin-bottom:10px">Seleccioná solo los pedidos que querés llevar en esta ruta y después tocá <b>Agregar a la ruta</b>.</div>
+
+      ${pending.length?pending.map(o=>`
+        <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #eee;cursor:pointer">
+          <input
+            type="checkbox"
+            class="route-order-check"
+            value="${esc(o.id)}"
+            ${routeIds.has(String(o.id))?"checked":""}
+            style="width:22px;height:22px;margin-top:2px;flex:0 0 auto">
+
+          <span style="flex:1">
+            <b>${esc(o.name)}</b><br>
+            <small class="muted">📍 ${esc(o.address)}</small><br>
+            <small>${money(o.total)}</small>
+            ${routeIds.has(String(o.id))
+              ? `<br><small style="color:var(--g)">✓ Ya está en esta ruta</small>`
+              : ""}
+          </span>
+        </label>`).join("")
+        : `<div class="empty">No hay pedidos pendientes.</div>`}
+
+      <div class="actions" style="margin-top:14px">
+        <button class="primary" onclick="addSelectedOrdersToActiveRoute()">➕ Agregar seleccionados a la ruta</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">📂 Rutas guardadas</h3>
+      ${routeTemplates.length?routeTemplates.map(r=>`
+        <div class="stock-row">
+          <span><b>🚚 ${esc(r.name)}</b><br>
+            <small>📍 ${esc(r.start?.label||r.origin||"Sin inicio")} → 🏁 ${esc(r.end?.label||r.destination||"Sin final")}</small><br>
+            <small>${(r.stops||[]).length} pedidos guardados</small>
+          </span>
+          <div class="actions" style="margin-top:0">
+            <button class="secondary small" onclick="loadRoute('${r.id}')">Cargar</button>
+            <button class="secondary small" onclick="overwriteRoute('${r.id}')">💾 Vaciar para seleccionar de nuevo</button>
+            <button class="danger small" onclick="deleteRoute('${r.id}')">🗑️ Eliminar</button>
+          </div>
+        </div>`).join("")
+        : `<div class="empty">Todavía no hay rutas guardadas.</div>`}
+    </div>
+  `;
+
+  if(active){
+    setupRouteAutocomplete("route-origin","route-origin-status",active.start?.label||active.origin||"");
+    setupRouteAutocomplete("route-destination","route-destination-status",active.end?.label||active.destination||"");
+  }else{
+    setupRouteAutocomplete("route-new-origin","route-new-origin-status","");
+    setupRouteAutocomplete("route-new-destination","route-new-destination-status","");
+  }
+}
+
+
+async function setupRouteAutocomplete(inputId,statusId,existingValue=""){
+  const input=document.getElementById(inputId);
+  const status=document.getElementById(statusId);
+  if(!input||!status)return;
+
+  input.value=existingValue||"";
+  input.dataset.lat="";
+  input.dataset.lng="";
+
+  const ready=await loadGooglePlaces();
+
+  if(!ready){
+    status.className="address-status address-warn";
+    status.textContent="Google Maps no pudo cargarse. Podés escribir la dirección manualmente.";
+    return;
+  }
+
+  try{
+    const autocomplete=new google.maps.places.Autocomplete(
+      input,
+      {
+        componentRestrictions:{country:"ar"},
+        fields:["formatted_address","geometry","place_id","name"]
+      }
+    );
+
+    autocomplete.addListener("place_changed",()=>{
+      const place=autocomplete.getPlace();
+
+      if(place && place.formatted_address){
+        input.value=place.formatted_address;
+        input.dataset.lat=place.geometry?.location?.lat?.() ?? "";
+        input.dataset.lng=place.geometry?.location?.lng?.() ?? "";
+        input.dataset.placeId=place.place_id||"";
+
+        status.className="address-status address-ok";
+        status.textContent="📍 Dirección confirmada por Google Maps.";
+      }else{
+        input.dataset.lat="";
+        input.dataset.lng="";
+        input.dataset.placeId="";
+        status.className="address-status address-warn";
+        status.textContent="Elegí una sugerencia de Google Maps.";
+      }
+    });
+
+    status.className="address-status address-warn";
+    status.textContent=existingValue
+      ? "📍 Dirección guardada. Podés modificarla."
+      : "Escribí y elegí una dirección de Google Maps.";
+
+  }catch(error){
+    console.error("Route autocomplete:",error);
+    status.className="address-status address-warn";
+    status.textContent="Podés escribir la dirección manualmente.";
+  }
+}
+
+function routeStopsForActiveRoute(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+  if(!route)return [];
+
+  const pending=orders.filter(o=>!o.delivered);
+  const savedIds=new Set(
+    (route.stops||[]).map(s=>String(s.orderId)).filter(Boolean)
+  );
+
+  return pending.filter(o=>savedIds.has(String(o.id)));
+}
+
+function createRouteFromPage(){
+  const name=document.getElementById("route-new-name")?.value.trim()||"";
+  const origin=document.getElementById("route-new-origin")?.value.trim()||"";
+  const destination=document.getElementById("route-new-destination")?.value.trim()||"";
+
+  if(!name||!origin||!destination){
+    alert("Completá nombre, dirección inicial y punto de llegada.");
+    return;
+  }
+
+  let route=routeTemplates.find(r=>String(r.name||"").toLowerCase()===name.toLowerCase());
+
+  if(route){
+    if(!confirm(`Ya existe la ruta "${route.name}". ¿Sobrescribirla?`)) return;
+  }else{
+    route={id:"r"+Date.now(),name,stops:[]};
+    routeTemplates.push(route);
+  }
+
+  route.name=name;
+  route.origin=origin;
+  route.destination=destination;
+  route.start={label:origin};
+  route.end={label:destination};
+  route.stops=[];
+  route.optimizedOrderIds=[];
+  route.optimizedAt=null;
+
+  activeRouteId=route.id;
+  save();
+  render();
+
+  alert(`Ruta "${name}" creada. Ahora seleccioná los pedidos y tocá "Agregar seleccionados a la ruta".`);
+}
+
+
+function addSelectedOrdersToActiveRoute(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+
+  if(!route){
+    alert("Primero creá y guardá la ruta con su nombre, inicio y llegada.");
+    return;
+  }
+
+  const checks=[...document.querySelectorAll(".route-order-check:checked")];
+
+  if(!checks.length){
+    alert("Seleccioná al menos un pedido de la lista.");
+    return;
+  }
+
+  route.stops=route.stops||[];
+
+  const existing=new Set(
+    route.stops.map(s=>String(s.orderId))
+  );
+
+  let added=0;
+
+  for(const check of checks){
+    const order=orders.find(
+      o=>String(o.id)===String(check.value)
+    );
+
+    if(!order||order.delivered){
+      continue;
+    }
+
+    if(existing.has(String(order.id))){
+      continue;
+    }
+
+    route.stops.push({
+      orderId:order.id,
+      name:order.name,
+      address:order.address,
+      phone:order.phone||"",
+      lat:order.lat??null,
+      lng:order.lng??null,
+      placeId:order.placeId||""
+    });
+
+    existing.add(String(order.id));
+    added++;
+  }
+
+  route.optimizedOrderIds=[];
+  route.optimizedAt=null;
+
+  save();
+  render();
+
+  if(added===0){
+    alert("Los pedidos seleccionados ya forman parte de esta ruta.");
+  }else{
+    alert(
+      `${added} pedido${added===1?"":"s"} agregado${added===1?"":"s"} a la ruta.`
+    );
+  }
+}
+
+function removeOrderFromActiveRoute(id){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+  if(!route)return;
+
+  const order=orders.find(o=>String(o.id)===String(id));
+
+  if(!confirm(`¿Quitar ${order?.name||"este pedido"} de esta ruta?`)) return;
+
+  route.stops=(route.stops||[]).filter(s=>String(s.orderId)!==String(id));
+  route.optimizedOrderIds=(route.optimizedOrderIds||[]).filter(x=>String(x)!==String(id));
+  route.optimizedAt=null;
+
+  save();
+  render();
+}
+
+
+function clearRouteField(inputId,statusId){
+  const input=document.getElementById(inputId);
+  if(!input)return;
+
+  input.value="";
+  delete input.dataset.lat;
+  delete input.dataset.lng;
+  delete input.dataset.placeId;
+
+  const status=document.getElementById(statusId);
+  if(status)status.textContent="";
+
+  input.focus();
+}
+
+function renderOptimizedRouteMap(result,optimized,origin,destination){
+  const box=document.getElementById("route-optimized-result");
+  const mapDiv=document.getElementById("route-optimized-map");
+  const metrics=document.getElementById("route-optimized-metrics");
+  const list=document.getElementById("route-optimized-list");
+
+  if(!box||!mapDiv||!window.google?.maps||!result?.routes?.[0]){
+    console.warn("No se pudo preparar el mapa de la ruta.");
+    return;
+  }
+
+  box.style.display="block";
+  mapDiv.style.display="block";
+  mapDiv.style.width="100%";
+  mapDiv.style.height="320px";
+  mapDiv.style.minHeight="320px";
+
+  const route=result.routes[0];
+  const bounds=new google.maps.LatLngBounds();
+
+  if(route.overview_path){
+    route.overview_path.forEach(point=>bounds.extend(point));
+  }
+
+  // Esperamos a que el navegador pinte el contenedor antes de crear el mapa.
+  // Esto evita el problema típico de mapas que aparecen en blanco dentro de
+  // una pantalla que acaba de ser renderizada.
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      try{
+        mapDiv.innerHTML="";
+
+        const map=new google.maps.Map(mapDiv,{
+          zoom:12,
+          center:route.overview_path?.[0]||{lat:-34.87,lng:-57.88},
+          mapTypeControl:false,
+          streetViewControl:false,
+          fullscreenControl:true,
+          gestureHandling:"greedy"
+        });
+
+        const renderer=new google.maps.DirectionsRenderer({
+          map,
+          directions:result,
+          routeIndex:0,
+          suppressMarkers:false,
+          preserveViewport:false,
+          polylineOptions:{
+            strokeColor:"#176b3a",
+            strokeWeight:5,
+            strokeOpacity:.9
+          }
+        });
+
+        window.__manosVerdesRouteRenderer=renderer;
+        window.__manosVerdesRouteMap=map;
+
+        if(!bounds.isEmpty()){
+          map.fitBounds(bounds);
+        }
+
+        setTimeout(()=>{
+          google.maps.event.trigger(map,"resize");
+          if(!bounds.isEmpty()) map.fitBounds(bounds);
+        },100);
+
+      }catch(error){
+        console.error("Error dibujando mapa:",error);
+      }
+    });
+  });
+
+  let totalDistance=0;
+  let totalDuration=0;
+
+  route.legs.forEach(leg=>{
+    totalDistance+=leg.distance?.value||0;
+    totalDuration+=leg.duration?.value||0;
+  });
+
+  if(metrics){
+    metrics.innerHTML=
+      `<b>📏 ${(totalDistance/1000).toFixed(1)} km</b>
+       · ⏱️ ${Math.round(totalDuration/60)} min aprox.
+       · 📦 ${optimized.length} paradas`;
+  }
+
+  if(list){
+    let html=`
+      <div style="padding:10px;border-radius:10px;background:#f3f7f4;margin-bottom:8px">
+        <b>🟢 INICIO</b><br>
+        <small>${esc(origin)}</small>
+      </div>
+    `;
+
+    optimized.forEach((order,i)=>{
+      const leg=route.legs[i];
+      const previous=i===0 ? origin : optimized[i-1].address;
+
+      const mapsUrl=
+        "https://www.google.com/maps/dir/?api=1"+
+        "&origin="+encodeURIComponent(previous)+
+        "&destination="+encodeURIComponent(order.address)+
+        "&travelmode=driving";
+
+      html+=`
+        <div class="route-stop-result">
+          <div class="route-stop-info">
+            <b>${i+1}. ${esc(order.name)}</b><br>
+            <small>📍 ${esc(order.address)}</small>
+            ${leg?.distance?.text
+              ? `<br><small class="muted">Tramo: ${leg.distance.text} · ${leg.duration?.text||""}</small>`
+              : ""}
+          </div>
+
+          <div class="route-stop-gps">
+            <button
+              type="button"
+              class="secondary small"
+              onclick="openRouteStopInGoogleMaps('${encodeURIComponent(mapsUrl)}')">
+              🗺️ Ir
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    const lastLeg=route.legs[route.legs.length-1];
+
+    const fullUrl=
+      "https://www.google.com/maps/dir/?api=1"+
+      "&origin="+encodeURIComponent(origin)+
+      "&destination="+encodeURIComponent(destination)+
+      "&waypoints="+optimized.map(o=>encodeURIComponent(o.address)).join("|")+
+      "&travelmode=driving";
+
+    html+=`
+      <div style="padding:10px;border-radius:10px;background:#f3f7f4;margin-top:8px">
+        <b>🏁 LLEGADA</b><br>
+        <small>${esc(destination)}</small>
+        ${lastLeg?.distance?.text
+          ? `<br><small class="muted">Tramo final: ${lastLeg.distance.text} · ${lastLeg.duration?.text||""}</small>`
+          : ""}
+      </div>
+
+      <div class="actions" style="margin-top:10px">
+        <button
+          type="button"
+          class="primary"
+          onclick="openRouteStopInGoogleMaps('${encodeURIComponent(fullUrl)}')">
+          🗺️ Abrir recorrido completo en Google Maps
+        </button>
+      </div>
+    `;
+
+    list.innerHTML=html;
+  }
+
+  box.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function openRouteStopInGoogleMaps(encodedUrl){
+  try{
+    const url=decodeURIComponent(encodedUrl);
+    window.open(url,"_blank");
+  }catch(error){
+    console.error("Google Maps:",error);
+  }
+}
+
+async function optimizeActiveRoute(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+
+  if(!route){
+    alert("Primero creá o cargá una ruta.");
+    return;
+  }
+
+  const routeOrders=routeStopsForActiveRoute();
+
+  if(!routeOrders.length){
+    alert("No hay pedidos pendientes para optimizar.");
+    return;
+  }
+
+  const origin=document.getElementById("route-origin")?.value.trim()
+    || route.start?.label
+    || route.origin
+    || "";
+
+  const destination=document.getElementById("route-destination")?.value.trim()
+    || route.end?.label
+    || route.destination
+    || "";
+
+  if(!origin||!destination){
+    alert("Completá la dirección inicial y el punto de llegada antes de optimizar.");
+    return;
+  }
+
+  if(routeOrders.length===1){
+    route.origin=origin;
+    route.destination=destination;
+    route.start={label:origin};
+    route.end={label:destination};
+    route.stops=routeOrders.map(o=>({
+      orderId:o.id,
+      name:o.name,
+      address:o.address,
+      phone:o.phone||"",
+      lat:o.lat??null,
+      lng:o.lng??null,
+      placeId:o.placeId||""
+    }));
+    route.optimizedOrderIds=[routeOrders[0].id];
+    route.optimizedAt=new Date().toISOString();
+    save();
+    render();
+
+    try{
+      const service=new google.maps.DirectionsService();
+      const result=await new Promise((resolve,reject)=>{
+        service.route({
+          origin,
+          destination,
+          waypoints:[{
+            location:routeOrders[0].lat!=null&&routeOrders[0].lng!=null
+              ? {lat:Number(routeOrders[0].lat),lng:Number(routeOrders[0].lng)}
+              : routeOrders[0].address,
+            stopover:true
+          }],
+          optimizeWaypoints:true,
+          travelMode:google.maps.TravelMode.DRIVING
+        },(response,status)=>{
+          if(status==="OK")resolve(response);
+          else reject(new Error(status));
+        });
+      });
+      renderOptimizedRouteMap(result,routeOrders,origin,destination);
+    }catch(e){
+      console.warn("No se pudo dibujar el mapa:",e);
+    }
+
+    alert("Hay una sola parada: la ruta quedó lista.");
+    return;
+  }
+
+  const ready=await loadGooglePlaces();
+
+  if(!ready || !window.google?.maps?.DirectionsService){
+    alert("Google Maps no está disponible para optimizar la ruta.");
+    return;
+  }
+
+  try{
+    const service=new google.maps.DirectionsService();
+
+    const waypoints=routeOrders.map(o=>({
+      location:o.lat!=null && o.lng!=null
+        ? {lat:Number(o.lat),lng:Number(o.lng)}
+        : o.address,
+      stopover:true
+    }));
+
+    const result=await new Promise((resolve,reject)=>{
+      service.route({
+        origin,
+        destination,
+        waypoints,
+        optimizeWaypoints:true,
+        travelMode:google.maps.TravelMode.DRIVING
+      },(response,status)=>{
+        if(status==="OK")resolve(response);
+        else reject(new Error(status||"No se pudo calcular la ruta."));
+      });
+    });
+
+    const order=result.routes?.[0]?.waypoint_order;
+
+    if(!Array.isArray(order)||order.length!==routeOrders.length){
+      throw new Error("Google Maps no devolvió un orden optimizado.");
+    }
+
+    const optimized=order.map(i=>routeOrders[i]).filter(Boolean);
+
+    route.origin=origin;
+    route.destination=destination;
+    route.start={label:origin};
+    route.end={label:destination};
+
+    route.stops=optimized.map(o=>({
+      orderId:o.id,
+      name:o.name,
+      address:o.address,
+      phone:o.phone||"",
+      lat:o.lat??null,
+      lng:o.lng??null,
+      placeId:o.placeId||""
+    }));
+
+    route.optimizedOrderIds=optimized.map(o=>o.id);
+    route.optimizedAt=new Date().toISOString();
+
+    save();
+    render();
+
+    renderOptimizedRouteMap(result,optimized,origin,destination);
+
+    alert(
+      `Ruta optimizada correctamente: ${optimized.length} paradas.`
+    );
+
+  }catch(error){
+    console.error("Optimización:",error);
+    alert(
+      "No se pudo optimizar la ruta. Revisá las direcciones inicial y final y que los pedidos tengan una dirección válida."
+    );
+  }
+}
+
+async function reoptimizeFromCurrentLocation(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+
+  if(!route){
+    alert("Primero cargá una ruta.");
+    return;
+  }
+
+  try{
+    const position=await window.RuteroideGeo.getCurrentPosition();
+
+    const lat=position.coords.latitude;
+    const lng=position.coords.longitude;
+
+    route.currentOrigin={
+      lat,
+      lng,
+      label:"Mi ubicación actual"
+    };
+
+    // For the reoptimization we temporarily use coordinates directly.
+    const routeOrders=routeStopsForActiveRoute();
+
+    if(!routeOrders.length){
+      alert("No hay pedidos pendientes para reoptimizar.");
+      return;
+    }
+
+    const destination=
+      document.getElementById("route-destination")?.value.trim()
+      || route.end?.label
+      || route.destination
+      || "";
+
+    if(!destination){
+      alert("Primero indicá el punto de llegada de la ruta.");
+      return;
+    }
+
+    const ready=await loadGooglePlaces();
+
+    if(!ready||!window.google?.maps?.DirectionsService){
+      alert("Google Maps no está disponible para reoptimizar.");
+      return;
+    }
+
+    if(routeOrders.length===1){
+      route.origin=`${lat},${lng}`;
+      route.optimizedOrderIds=[routeOrders[0].id];
+      route.stops=routeOrders.map(o=>({
+        orderId:o.id,
+        name:o.name,
+        address:o.address,
+        phone:o.phone||"",
+        lat:o.lat??null,
+        lng:o.lng??null,
+        placeId:o.placeId||""
+      }));
+      route.optimizedAt=new Date().toISOString();
+      save();
+      render();
+
+      try{
+        const service=new google.maps.DirectionsService();
+        const result=await new Promise((resolve,reject)=>{
+          service.route({
+            origin:{lat,lng},
+            destination,
+            waypoints:[{
+              location:routeOrders[0].lat!=null&&routeOrders[0].lng!=null
+                ? {lat:Number(routeOrders[0].lat),lng:Number(routeOrders[0].lng)}
+                : routeOrders[0].address,
+              stopover:true
+            }],
+            optimizeWaypoints:true,
+            travelMode:google.maps.TravelMode.DRIVING
+          },(response,status)=>{
+            if(status==="OK")resolve(response);
+            else reject(new Error(status||"No se pudo calcular la ruta."));
+          });
+        });
+
+        renderOptimizedRouteMap(
+          result,
+          routeOrders,
+          `${lat},${lng}`,
+          destination
+        );
+      }catch(e){
+        console.warn("No se pudo dibujar el mapa:",e);
+      }
+
+      alert("Ruta reoptimizada desde tu ubicación actual.");
+      return;
+    }
+
+    const service=new google.maps.DirectionsService();
+
+    const waypoints=routeOrders.map(o=>({
+      location:o.lat!=null&&o.lng!=null
+        ? {lat:Number(o.lat),lng:Number(o.lng)}
+        : o.address,
+      stopover:true
+    }));
+
+    const result=await new Promise((resolve,reject)=>{
+      service.route({
+        origin:{lat,lng},
+        destination,
+        waypoints,
+        optimizeWaypoints:true,
+        travelMode:google.maps.TravelMode.DRIVING
+      },(response,status)=>{
+        if(status==="OK")resolve(response);
+        else reject(new Error(status||"No se pudo calcular la ruta."));
+      });
+    });
+
+    const order=result.routes?.[0]?.waypoint_order;
+
+    if(!Array.isArray(order)||order.length!==routeOrders.length){
+      throw new Error("No se obtuvo un orden optimizado.");
+    }
+
+    const optimized=order.map(i=>routeOrders[i]).filter(Boolean);
+
+    route.origin=`${lat},${lng}`;
+    route.currentOrigin={
+      lat,
+      lng,
+      label:"Mi ubicación actual"
+    };
+    route.optimizedOrderIds=optimized.map(o=>o.id);
+    route.stops=optimized.map(o=>({
+      orderId:o.id,
+      name:o.name,
+      address:o.address,
+      phone:o.phone||"",
+      lat:o.lat??null,
+      lng:o.lng??null,
+      placeId:o.placeId||""
+    }));
+    route.optimizedAt=new Date().toISOString();
+
+    save();
+    render();
+
+    renderOptimizedRouteMap(
+      result,
+      optimized,
+      `${lat},${lng}`,
+      destination
+    );
+
+    alert(
+      `Ruta reoptimizada desde tu ubicación actual: ${optimized.length} paradas.`
+    );
+
+  }catch(error){
+    console.error("Reoptimización:",error);
+    alert(
+      window.RuteroideGeo.getErrorMessage
+        ? window.RuteroideGeo.getErrorMessage(error)
+        : "No se pudo obtener tu ubicación actual."
+    );
+  }
+}
+
+function saveRouteEndpoints(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+
+  if(!route){
+    alert("Primero cargá o creá una ruta.");
+    return;
+  }
+
+  const origin=document.getElementById("route-origin")?.value.trim()||"";
+  const destination=document.getElementById("route-destination")?.value.trim()||"";
+
+  if(!origin||!destination){
+    alert("Completá la dirección inicial y el punto de llegada.");
+    return;
+  }
+
+  route.origin=origin;
+  route.destination=destination;
+  route.start={
+    label:origin,
+    lat:document.getElementById("route-origin")?.dataset.lat||null,
+    lng:document.getElementById("route-origin")?.dataset.lng||null
+  };
+  route.end={
+    label:destination,
+    lat:document.getElementById("route-destination")?.dataset.lat||null,
+    lng:document.getElementById("route-destination")?.dataset.lng||null
+  };
+
+  save();
+  render();
+
+  alert("Inicio y llegada guardados.");
+}
+
+function saveCurrentRoute(){
+  const route=routeTemplates.find(r=>r.id===activeRouteId);
+  if(!route){
+    alert("Primero creá o cargá una ruta.");
+    return;
+  }
+
+  const origin=document.getElementById("route-origin")?.value.trim()||route.origin||"";
+  const destination=document.getElementById("route-destination")?.value.trim()||route.destination||"";
+
+  if(!origin||!destination){
+    alert("Completá la dirección inicial y el punto de llegada.");
+    return;
+  }
+
+  route.origin=origin;
+  route.destination=destination;
+  route.start={label:origin};
+  route.end={label:destination};
+
+  save();
+  render();
+
+  alert(`Ruta "${route.name}" guardada con ${(route.stops||[]).length} pedidos seleccionados.`);
+}
+
+
+function confirmSaveRoute(){
+  const name=document.getElementById("route-name-input")?.value.trim()||"";
+  const start=document.getElementById("route-start-input")?.value.trim()||"";
+  const end=document.getElementById("route-end-input")?.value.trim()||"";
+
+  if(!name){
+    alert("Ingresá un nombre para la ruta.");
+    return;
+  }
+
+  if(!start||!end){
+    alert("Ingresá la dirección inicial y el punto de llegada.");
+    return;
+  }
+
+  const pending=orders.filter(o=>!o.delivered);
+
+  if(!pending.length){
+    alert("No hay pedidos pendientes para guardar en la ruta.");
+    return;
+  }
+
+  let route=routeTemplates.find(
+    r=>r.name.toLowerCase()===name.toLowerCase()
+  );
+
+  if(route){
+    if(!confirm(`Ya existe la ruta "${route.name}". ¿Sobrescribirla?`)){
+      return;
+    }
+  }else{
+    route={
+      id:"r"+Date.now(),
+      name,
+      stops:[]
+    };
+
+    routeTemplates.push(route);
+  }
+
+  route.name=name;
+  route.origin=start;
+  route.destination=end;
+  route.start={label:start};
+  route.end={label:end};
+
+  route.stops=pending.map(o=>({
+    orderId:o.id,
+    name:o.name,
+    address:o.address,
+    phone:o.phone||"",
+    lat:o.lat??null,
+    lng:o.lng??null,
+    placeId:o.placeId||""
+  }));
+
+  route.optimizedOrderIds=[];
+  route.optimizedAt=null;
+
+  activeRouteId=route.id;
+
+  save();
+  closeModal();
+  render();
+
+  alert(
+    `Ruta "${name}" guardada con ${pending.length} pedidos pendientes.`
+  );
+}
+
+function loadRoute(id){
+  const route=routeTemplates.find(r=>r.id===id);
+  if(!route)return;
+
+  activeRouteId=route.id;
+  save();
+  render();
+}
+
+
+function overwriteRoute(id){
+  const route=routeTemplates.find(r=>r.id===id);
+  if(!route)return;
+
+  if(!confirm(`¿Vaciar la selección de la ruta "${route.name}" para elegir nuevamente sus pedidos?`)) return;
+
+  activeRouteId=route.id;
+  route.stops=[];
+  route.optimizedOrderIds=[];
+  route.optimizedAt=null;
+
+  save();
+  render();
+
+  alert("Ruta vaciada. Ahora seleccioná los pedidos que querés agregar.");
+}
+
+
+function clearActiveRoute(){
+  activeRouteId=null;
+  save();
+  render();
+}
+
+function deleteRoute(id){
+  const route=routeTemplates.find(r=>r.id===id);
+
+  if(!route)return;
+
+  if(!confirm(`¿Eliminar la ruta "${route.name}"?`)){
+    return;
+  }
+
+  routeTemplates=routeTemplates.filter(r=>r.id!==id);
+
+  if(activeRouteId===id){
+    activeRouteId=null;
+  }
+
+  save();
+  render();
+}
+
+function historyPage(m){
+    m.innerHTML = `
+        <h2>Historial</h2>
+        ${history.length ? history.map((h,i) => `
+            <div class="card">
+                <div class="between">
+                    <b>Reparto ${new Date(h.date).toLocaleDateString("es-AR")}</b>
+                    <b>${money(h.total)}</b>
+                </div>
+                <div class="muted">
+                    ${h.orders.length} pedidos · ${h.delivered} entregados
+                </div>
+                <button class="danger small" style="margin-top:10px" onclick="deleteHistory(${i})">
+                    🗑️ Eliminar
+                </button>
+            </div>
+        `).join("") : `
+            <div class="card empty">
+                Todavía no hay repartos finalizados.
+            </div>
+        `}
+    `;
+}
+function deleteHistory(i){if(confirm("¿Eliminar este reparto?")){history.splice(i,1);save();render()}}
+function closeModal(){document.getElementById("modal").classList.remove("open")}
+render();
+</script>
+
+<script>
+(function () {
+  function setPhone(value) {
+    if (!value) return;
+    const input = document.getElementById('f-phone');
+    if (!input) return;
+    input.value = String(value).trim();
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+    input.dispatchEvent(new Event('change', {bubbles:true}));
+  }
+
+  window.pickClientContact = async function () {
+    try {
+      if (window.RuteroideContacts &&
+          typeof window.RuteroideContacts.pickContact === 'function') {
+        const result = await window.RuteroideContacts.pickContact();
+        const phone = result?.phone || result?.number || result?.tel || '';
+        if (phone) {
+          setPhone(phone);
+          return;
+        }
+        alert('El contacto seleccionado no tiene un número de teléfono.');
+        return;
+      }
+
+      if (navigator.contacts &&
+          typeof navigator.contacts.select === 'function') {
+        const contacts = await navigator.contacts.select(
+          ['name', 'tel'],
+          {multiple:false}
+        );
+
+        if (contacts && contacts.length) {
+          const phones = contacts[0].tel || [];
+          if (phones.length) {
+            setPhone(phones[0]);
+            return;
+          }
+          alert('Ese contacto no tiene un número de teléfono guardado.');
+          return;
+        }
+        return;
+      }
+
+      alert('La agenda de Android no quedó disponible en este APK.');
+    } catch (e) {
+      console.error('Agenda Android:', e);
+      alert(e?.message || 'No se pudo abrir la agenda de Android.');
+    }
+  };
+})();
+</script>
+
+</body></html>
