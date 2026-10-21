@@ -28,7 +28,7 @@ INJECTION = r"""
     window.routeStopsForActiveRoute = function () {
       const route = activeRoute();
       if (!route) return [];
-      const pending = (window.orders || []).filter(o => !o.delivered);
+      const pending = (typeof orders !== "undefined" ? orders : []).filter(o => !o.delivered);
       const pendingById = new Map(pending.map(o => [String(o.id), o]));
       const result = [];
       for (const stop of (route.stops || [])) {
