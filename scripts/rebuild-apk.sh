@@ -63,6 +63,8 @@ if [[ ! -f "$ASSET" ]]; then
   exit 4
 fi
 python3 scripts/patch-route-whatsapp.py "$ASSET"
+echo "5b/7 - Agregando edición de paradas y direcciones personalizadas"
+python3 scripts/patch-route-editing.py "$ASSET"
 
 echo "6/7 - Reconstruyendo APK"
 apktool b "$WORK" -o "$OUT_DIR/Manos-Verdes-Full-unsigned.apk"
@@ -78,6 +80,9 @@ python3 scripts/align-apk-resources.py "$OUT_DIR/Manos-Verdes-Full.apk"
 jarsigner -verify "$OUT_DIR/Manos-Verdes-Full.apk"
 unzip -p "$OUT_DIR/Manos-Verdes-Full.apk" assets/public/index.html | grep -q 'aria-label="WhatsApp"' || {
   echo "::error::No se detectó el botón WhatsApp en el APK resultante."; exit 5;
+}
+unzip -p "$OUT_DIR/Manos-Verdes-Full.apk" assets/public/index.html | grep -q 'MANOS_VERDES_FULL_EDITABLE_ROUTE_STOPS_V1' || {
+  echo "::error::No se detectó la edición de paradas en el APK resultante."; exit 7;
 }
 unzip -p "$OUT_DIR/Manos-Verdes-Full.apk" assets/capacitor.config.json | grep -q "$PACKAGE_ID" || {
   echo "::error::El appId de Capacitor no coincide."; exit 6;
