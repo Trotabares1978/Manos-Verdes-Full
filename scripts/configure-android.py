@@ -139,4 +139,13 @@ for density, size in sizes.items():
     resized.save(folder / "ic_launcher.png")
     resized.save(folder / "ic_launcher_round.png")
 
+# Force Android to use the generated raster icons rather than Capacitor's
+# default adaptive-icon XML resources.
+for adaptive in (
+    Path("android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml"),
+    Path("android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml"),
+):
+    if adaptive.exists():
+        adaptive.unlink()
+
 print("Permisos, iconos y selector nativo de contactos configurados.")
