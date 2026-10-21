@@ -7,6 +7,8 @@ Reconstrucción de **Manos Verdes Full** a partir de la APK de Manos Verdes Inte
 - Instalar Full en paralelo con Integral, sin desinstalar ni sobrescribir la original.
 - Conservar el icono y sumar un botón pequeño, solo con el icono 💬, junto a Google Maps en cada parada de ruta que tenga teléfono.
 - Usar la función WhatsApp existente en la interfaz.
+- Editar una ruta ya armada: quitar paradas con ✕, agregar direcciones nuevas confirmadas por Google Places y volver a optimizar.
+- Al optimizar por primera vez, respetar el inicio y el destino ingresados. Al reoptimizar, usar la ubicación GPS actual como inicio y conservar el destino final guardado.
 
 ## Reconstrucción desde la APK
 La APK original se coloca localmente en `input/original.apk` (no se sube al repositorio). Ejecutar:
@@ -15,7 +17,7 @@ La APK original se coloca localmente en `input/original.apk` (no se sube al repo
 python3 scripts/build-apk-from-binary.py input/original.apk out/Manos-Verdes-Full-unsigned.apk
 ```
 
-El script verifica que la plantilla de ruta y la función WhatsApp existan, añade el botón una sola vez, cambia el identificador Android para separar ambas instalaciones y actualiza la configuración de Capacitor.
+Los scripts verifican las funciones esperadas, añaden el botón WhatsApp una sola vez, incorporan controles para editar las paradas de una ruta y agregan direcciones personalizadas mediante Google Places. También cambian el identificador Android para separar ambas instalaciones y actualizan la configuración de Capacitor.
 
 Después se debe firmar el APK con una clave propia antes de instalarlo. Una firma nueva no permite actualizar la aplicación original ni compartir directamente sus datos privados; la migración de datos depende del mecanismo de exportación/importación de la aplicación.
 
