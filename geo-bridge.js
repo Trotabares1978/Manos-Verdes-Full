@@ -1,4 +1,7 @@
+import { registerPlugin } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+
+const RuteroideContacts = registerPlugin("RuteroideContacts");
 
 window.RuteroideGeo = {
   getCurrentPosition: async function () {
@@ -9,3 +12,6 @@ window.RuteroideGeo = {
     });
   }
 };
+
+// Preserve the API expected by the existing app HTML.
+window.RuteroideContacts = RuteroideContacts;
