@@ -9,7 +9,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
 .app{max-width:760px;margin:auto;min-height:100vh}.top{background:linear-gradient(135deg,#155f35,#2f9650);color:#fff;padding:14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px #0002}
 .brand{display:flex;align-items:center;gap:11px}.brand img{width:52px;height:52px;border-radius:13px;object-fit:cover}.brand h1{font-size:20px;margin:0}.sub{font-size:12px;opacity:.88}
-nav{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:12px}nav button{border:0;border-radius:10px;padding:9px 2px;background:#ffffff22;color:#fff;font-weight:800;font-size:11px}nav button.active{background:#fff;color:var(--g)}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:12px}nav button{border:0;border-radius:10px;padding:9px 2px;background:#ffffff22;color:#fff;font-weight:800;font-size:11px}nav button.active{background:#fff;color:var(--g)}
 main{padding:14px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #174b2310}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left}.tile b{display:block;font-size:23px}.tile span{color:var(--muted);font-size:13px}
 h2{font-size:20px;margin:4px 0 12px}.muted{color:var(--muted);font-size:13px}.between{display:flex;justify-content:space-between;align-items:center;gap:10px}.total{font-size:28px;font-weight:900;margin:12px 0}.badge{background:#e4f4e9;color:var(--g);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
 button.primary,button.secondary,button.danger{border:0;border-radius:11px;padding:12px 14px;font-weight:800}.primary{background:var(--g);color:#fff}.secondary{background:#edf4ef;color:var(--g)}.danger{background:#fbe9e7;color:var(--red)}.small{padding:8px 10px!important;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -206,7 +206,8 @@ function nav(){
     ["ruta","🗺️ Ruta"],
     ["stock","📦 Stock"],
     ["historial","📚 Historial"],
-    ["deudas","💳 Deudas"]
+    ["deudas","💳 Deudas"],
+    ["backup","💾 Copia"]
   ];
   document.getElementById("nav").innerHTML=a.map(x=>`<button class="${page==x[0]?"active":""}" onclick="go('${x[0]}')">${x[1]}</button>`).join("");
 }
@@ -220,6 +221,7 @@ function render(){
   if(page=="stock")stockPage(m);
   if(page=="historial")historyPage(m);
   if(page=="deudas")debtsPage(m);
+  if(page=="backup")backupPage(m);
 }
 function home(m){
   let p=orders.filter(o=>!o.delivered).length;
@@ -1758,6 +1760,137 @@ render();
     }
   };
 })();
+</script>
+
+
+<script>
+/* MANOS_VERDES_BACKUP_MERGE_CLIENTS_V1 */
+function backupPage(m){
+  m.innerHTML = `
+    <div class="card">
+      <h2>💾 Copia de seguridad</h2>
+      <p class="muted">Exportá todos los datos de esta aplicación o cargá una copia anterior.</p>
+      <div class="actions">
+        <button class="primary" type="button" onclick="exportManosVerdesBackup()">⬇️ Crear copia de seguridad</button>
+        <button class="secondary" type="button" onclick="document.getElementById('mv-backup-file').click()">📂 Cargar copia de seguridad</button>
+      </div>
+      <input id="mv-backup-file" type="file" accept=".json,application/json" style="display:none" onchange="importManosVerdesBackup(this)">
+      <p class="muted" style="margin-top:12px">Al cargar una copia, el resto de los datos se restaurará desde ella. Los clientes se combinarán: se conservan los que ya existen, se omiten los repetidos y se agregan los que falten.</p>
+    </div>
+    <div class="card">
+      <h3>Cómo se combinan los clientes</h3>
+      <ul>
+        <li>Los clientes actuales nunca se borran al restaurar.</li>
+        <li>Si un cliente ya existe con el mismo nombre y dirección, no se duplica.</li>
+        <li>Los clientes nuevos de la copia se suman a la base actual.</li>
+      </ul>
+      <p class="muted">Consejo: guardá una copia antes de restaurar datos importantes.</p>
+    </div>
+  `;
+}
+
+function exportManosVerdesBackup(){
+  const keys = ["mvi_orders","mvi_history","mvi_debts","mvi_clients","mvi_route_templates","mvi_active_route","mvi_products"];
+  const storage = {};
+  for(const key of keys){
+    const value = localStorage.getItem(key);
+    if(value !== null) storage[key] = value;
+  }
+  const backup = {version:1, app:"Manos Verdes Integral", createdAt:new Date().toISOString(), storage};
+  const blob = new Blob([JSON.stringify(backup,null,2)],{type:"application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Manos-Verdes-Backup-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function normalizeBackupText(value){
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().replace(/\s+/g," ").toLocaleLowerCase("es");
+}
+function backupClientKey(client){
+  const name = normalizeBackupText(client?.name);
+  const address = normalizeBackupText(client?.address);
+  const phone = normalizeBackupText(client?.phone);
+  if(!name) return "id:" + String(client?.id ?? "");
+  if(address) return "name-address:" + name + "|" + address;
+  if(phone) return "name-phone:" + name + "|" + phone;
+  return "name:" + name;
+}
+async function importManosVerdesBackup(input){
+  const file = input?.files?.[0];
+  if(!file) return;
+  input.value = "";
+  try{
+    const backup = JSON.parse(await file.text());
+    const storage = backup?.storage;
+    if(!storage || typeof storage !== "object" || Array.isArray(storage)){
+      throw new Error("El archivo no tiene el formato de una copia de seguridad compatible.");
+    }
+    if(backup.app && !String(backup.app).toLowerCase().includes("manos verdes")){
+      if(!confirm("El archivo no identifica a Manos Verdes Integral. ¿Querés intentar cargarlo igualmente?")) return;
+    }
+    const incomingRaw = storage.mvi_clients;
+    let incomingClients = [];
+    if(incomingRaw != null){
+      incomingClients = Array.isArray(incomingRaw) ? incomingRaw : JSON.parse(incomingRaw);
+      if(!Array.isArray(incomingClients)) throw new Error("La lista de clientes de la copia no es válida.");
+    }
+    const currentClients = load("mvi_clients",[]);
+    if(!Array.isArray(currentClients)) throw new Error("La base actual de clientes no es válida.");
+    const merged = currentClients.map(c=>({...c}));
+    const known = new Set(merged.map(backupClientKey));
+    let added = 0, duplicates = 0;
+    const usedIds = new Set(merged.map(c=>String(c?.id ?? "")).filter(Boolean));
+    for(const rawClient of incomingClients){
+      if(!rawClient || typeof rawClient !== "object" || Array.isArray(rawClient)) continue;
+      const key = backupClientKey(rawClient);
+      if(known.has(key)){
+        duplicates++;
+        continue;
+      }
+      const client = {...rawClient};
+      if(!client.id || usedIds.has(String(client.id))){
+        let id;
+        do { id = "c" + Date.now().toString() + Math.random().toString(36).slice(2,7); }
+        while(usedIds.has(id));
+        client.id = id;
+      }
+      usedIds.add(String(client.id));
+      known.add(key);
+      merged.push(client);
+      added++;
+    }
+    const previousCount = currentClients.length;
+    // Restore all supported app data from the backup, but merge rather than replace clients.
+    for(const [key,value] of Object.entries(storage)){
+      if(typeof key !== "string" || !key.startsWith("mvi_") || key === "mvi_clients") continue;
+      localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+    }
+    localStorage.setItem("mvi_clients",JSON.stringify(merged));
+    orders = load("mvi_orders",[]);
+    history = load("mvi_history",[]);
+    debts = load("mvi_debts",[]);
+    clients = load("mvi_clients",[]);
+    routeTemplates = load("mvi_route_templates",[]);
+    activeRouteId = load("mvi_active_route",null);
+    const restoredProducts = load("mvi_products",PRODUCTS_DEFAULT.map(p=>[...p]));
+    if(Array.isArray(restoredProducts) && restoredProducts.length === PRODUCTS_DEFAULT.length) PRODUCTS = restoredProducts;
+    save();
+    render();
+    alert("Copia cargada correctamente.\n\nClientes que ya había: " + previousCount +
+      "\nClientes agregados: " + added +
+      "\nRepetidos omitidos: " + duplicates +
+      "\nTotal de clientes ahora: " + merged.length +
+      "\n\nLos clientes anteriores se conservaron.");
+  }catch(error){
+    console.error("Carga de copia de seguridad:",error);
+    alert(error?.message || "No se pudo cargar la copia de seguridad. No se modificaron los datos.");
+  }
+}
 </script>
 
 </body></html>
