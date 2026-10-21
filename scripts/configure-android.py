@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from PIL import Image
 
 ANDROID = "{http://schemas.android.com/apk/res/android}"
+ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
 manifest = Path("android/app/src/main/AndroidManifest.xml")
 if not manifest.exists():
     raise SystemExit("No se encontró AndroidManifest.xml")
