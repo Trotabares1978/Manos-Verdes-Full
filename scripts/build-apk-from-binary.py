@@ -2,6 +2,7 @@
 """Patch the supplied Manos Verdes Integral APK into a parallel-installable Full APK."""
 import json, os, subprocess, sys, zipfile
 from pathlib import Path
+from patch_route_editing import patch_html
 
 src = Path(sys.argv[1] if len(sys.argv) > 1 else "input/original.apk")
 out = Path(sys.argv[2] if len(sys.argv) > 2 else "out/Manos-Verdes-Full-unsigned.apk")
@@ -29,6 +30,7 @@ if 'aria-label="WhatsApp"' not in html:
               ${o.phone ? `<button type="button" class="secondary small" title="WhatsApp" aria-label="WhatsApp" onclick="wa('${esc(o.phone)}')">💬</button>` : ""}""", 1)
 if html.count('aria-label="WhatsApp"') != 1:
     raise SystemExit("La validación del botón WhatsApp falló.")
+html = patch_html(html)
 entries["assets/public/index.html"] = (html_info, html.encode())
 for name in ("AndroidManifest.xml", "resources.arsc"):
     info, data = entries[name]
