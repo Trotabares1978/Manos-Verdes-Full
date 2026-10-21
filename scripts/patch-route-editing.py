@@ -66,6 +66,12 @@ INJECTION = r"""
     const route = activeRoute();
     if (!route) return;
     const key = String(id);
+    const stop = (route.stops || []).find(s =>
+      String(s.orderId ?? s.customId ?? s.id ?? "") === key
+    );
+    if (!stop) return;
+    const label = stop.name || stop.address || "esta parada";
+    if (!confirm("¿Quitar " + label + " de esta ruta?\\n\\nNo se eliminará el cliente ni el pedido de la aplicación; solo se quitará de esta ruta.")) return;
     const before = (route.stops || []).length;
     route.stops = (route.stops || []).filter(s =>
       String(s.orderId ?? s.customId ?? s.id ?? "") !== key
