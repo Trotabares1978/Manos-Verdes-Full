@@ -1,0 +1,6 @@
+{
+  "appId": "com.manosverdes.full",
+  "appName": "Manos Verdes Full",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
