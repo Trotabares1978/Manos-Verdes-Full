@@ -128,6 +128,84 @@ if "RuteroideContactsPlugin.class" not in source:
         source = source.replace(class_match.group(1), method, 1)
     main.write_text(source, encoding="utf-8")
 
+backup_plugin = plugin_dir / "ManosVerdesBackupPlugin.java"
+backup_plugin.write_text(r'''package PACKAGE_NAME;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.annotation.ActivityCallback;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.PluginMethod;
+
+@CapacitorPlugin(name = "ManosVerdesBackup")
+public class ManosVerdesBackupPlugin extends Plugin {
+    @PluginMethod
+    public void saveBackup(PluginCall call) {
+        String filename = call.getString("filename");
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = "Manos-Verdes-Backup.json";
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, filename);
+        startActivityForResult(call, intent, "saveBackupResult");
+    }
+
+    @ActivityCallback
+    private void saveBackupResult(PluginCall call, androidx.activity.result.ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK ||
+            result.getData() == null || result.getData().getData() == null) {
+            JSObject cancelled = new JSObject();
+            cancelled.put("cancelled", true);
+            call.resolve(cancelled);
+            return;
+        }
+        Uri uri = result.getData().getData();
+        String content = call.getString("content");
+        if (content == null) {
+            call.reject("No se recibieron los datos de la copia de seguridad.");
+            return;
+        }
+        try (OutputStream output = getContext().getContentResolver().openOutputStream(uri)) {
+            if (output == null) {
+                call.reject("Android no pudo abrir el archivo elegido.");
+                return;
+            }
+            output.write(content.getBytes(StandardCharsets.UTF_8));
+            output.flush();
+            JSObject saved = new JSObject();
+            saved.put("cancelled", false);
+            saved.put("uri", uri.toString());
+            call.resolve(saved);
+        } catch (Exception error) {
+            call.reject("No se pudo escribir la copia de seguridad.", error);
+        }
+    }
+}
+'''.replace("PACKAGE_NAME", package), encoding="utf-8")
+
+if "ManosVerdesBackupPlugin.class" not in source:
+    if "import android.os.Bundle;" not in source:
+        source = source.replace("import com.getcapacitor.BridgeActivity;", "import android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;")
+    if re.search(r"public\s+void\s+onCreate\s*\(", source):
+        if "super.onCreate(savedInstanceState);" not in source:
+            raise SystemExit("onCreate existe pero no se encontró super.onCreate(savedInstanceState)")
+        source = source.replace(
+            "super.onCreate(savedInstanceState);",
+            "registerPlugin(ManosVerdesBackupPlugin.class);\n        super.onCreate(savedInstanceState);",
+            1
+        )
+    else:
+        raise SystemExit("Se esperaba que el registro del selector de contactos ya hubiera creado onCreate")
+
 icon_path = Path("www/icon.png")
 if not icon_path.exists():
     raise SystemExit("Falta www/icon.png")
