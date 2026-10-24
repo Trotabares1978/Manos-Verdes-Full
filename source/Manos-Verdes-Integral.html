@@ -186,7 +186,7 @@ let PRODUCTS=load("mvi_products",PRODUCTS_DEFAULT.map(p=>[...p]));
 if(!Array.isArray(PRODUCTS)||PRODUCTS.length!==PRODUCTS_DEFAULT.length){PRODUCTS=PRODUCTS_DEFAULT.map(p=>[...p]);}
 const PROMO_STOCK={promo12f:{n1:1,n2:1,fruta:1},promo3v:{n1:1,n2:1,n3:1},promo4:{n1:1,n2:1,n3:1,fruta:1}};
 const PHYSICAL={n1:"Bolsón n°1",n2:"Bolsón n°2",n3:"Bolsón n°3",fruta:"Bolsón de frutas",miel:"Miel",hcom:"Huevos comunes",hcom2:"Huevos comunes x 2",hcas:"Huevos Caseros",hagr:"Huevos Agroecológicos",cc2:"Cremoso Cremac x 2kg",cc4:"Cremoso Cremac x 4kg",sf15:"Sardo Fresco x 1,5kg",sf3:"Sardo Fresco x 3kg",sc18:"Sardo Cremac x 1,8kg"};
-let orders=load("mvi_orders",[]), history=load("mvi_history",[]), debts=load("mvi_debts",[]), clients=load("mvi_clients",[]), routeTemplates=load("mvi_route_templates",[]), activeRouteId=load("mvi_active_route",null), page="inicio", cart=[], editing=null;
+let orders=load("mvi_orders",[]), history=load("mvi_history",[]), debts=load("mvi_debts",[]), clients=load("mvi_clients",[]), routeTemplates=load("mvi_route_templates",[]), activeRouteId=load("mvi_active_route",null), page="inicio", cart=[], editing=null, clientPickerFormSnapshot=null;
 function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
 function save(){
   localStorage.setItem("mvi_orders",JSON.stringify(orders));
@@ -313,11 +313,10 @@ function ordersPage(m){
             ${o.payment==="Pagado" ? "↩️ Marcar pendiente" : "💰 Marcar pagado"}
           </button>
 
-          <button
-            class="${o.delivered ? "secondary" : "primary"} small"
-            onclick="toggleDelivered('${o.id}')">
-            ${o.delivered ? "↩️ Marcar pendiente" : "🚚 Marcar entregado"}
-          </button>
+          <label style="display:flex;align-items:center;gap:7px;margin:0;padding:7px 10px;border-radius:10px;background:${o.delivered ? "#e4f4e9" : "#fff3cd"};color:${o.delivered ? "var(--g)" : "#856404"};font-size:13px;cursor:pointer">
+            <input type="checkbox" style="width:18px;height:18px;margin:0;accent-color:var(--g)" ${o.delivered ? "checked" : ""} onchange="toggleDelivered('${o.id}')">
+            🚚 Entregado
+          </label>
 
           <button class="secondary small" onclick="editOrder('${o.id}')">
             ✏️ Editar
@@ -338,7 +337,11 @@ function ordersPage(m){
     `}
 
     <div class="card">
-      <button class="danger" onclick="finalize()">🏁 Finalizar reparto</button>
+      <div class="actions">
+        <button class="secondary" onclick="finalize()">🏁 Finalizar reparto</button>
+        <button class="danger" onclick="deleteAllOrders()">🗑️ Eliminar lista de pedidos</button>
+      </div>
+      <p class="muted" style="margin-top:10px">Al eliminar la lista, los pedidos con pagos pendientes se conservarán en Deudas.</p>
     </div>
   `;
 }
@@ -447,6 +450,7 @@ function saveClientFromForm(){
 }
 
 function showClientPicker(){
+  clientPickerFormSnapshot=preserveOrderForm();
   if(!clients.length){
     alert('Todavía no hay clientes guardados. Primero guardá un cliente y su dirección.');
     return;
@@ -455,16 +459,23 @@ function showClientPicker(){
   const ordered=[...clients].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'}));
 
   document.getElementById('sheet').innerHTML=`
-    <h2>👤 Añadir cliente</h2>
+    <div class="between" style="margin-bottom:12px">
+      <h2 style="margin:0">👤 Añadir cliente</h2>
+      <button type="button" class="secondary small" onclick="cancelClientPicker()">Cancelar</button>
+    </div>
     <div class="muted" style="margin-bottom:12px">Elegí un cliente para completar automáticamente sus datos.</div>
     <input id="client-search" placeholder="🔎 Buscar cliente..." oninput="filterClientPicker()">
     <div id="client-picker-list" style="margin-top:10px">
       ${ordered.map(c=>clientPickerRow(c)).join('')}
-    </div>
-    <div class="actions" style="margin-top:14px">
-      <button type="button" class="secondary" onclick="openOrder()">Cancelar</button>
     </div>`;
   document.getElementById('modal').classList.add('open');
+}
+
+function cancelClientPicker(){
+  const preserved={...(clientPickerFormSnapshot||{})};
+  clientPickerFormSnapshot=null;
+  closeModal();
+  openOrder(preserved);
 }
 
 function clientPickerRow(c){
@@ -488,8 +499,9 @@ function selectClient(id){
   const c=clients.find(x=>x.id==id);
   if(!c)return;
 
-  // Si venimos del selector, volvemos a construir el pedido conservando los productos ya elegidos.
-  const preserved=preserveOrderForm();
+  // El selector reemplaza el formulario dentro del modal; usamos la copia guardada antes de abrirlo.
+  const preserved={...(clientPickerFormSnapshot||{})};
+  clientPickerFormSnapshot=null;
   preserved['f-name']=c.name||'';
   preserved['f-address']=c.address||'';
   preserved['f-phone']=c.phone||'';
@@ -600,7 +612,70 @@ function deleteOrder(id){
   save();
   render();
 }
+function deleteAllOrders(){
+  if(!orders.length){alert("No hay pedidos para eliminar.");return;}
+  const unpaid=orders.filter(o=>String(o.payment||"Pendiente")!=="Pagado");
+  const message="¿Eliminar la lista completa de pedidos?\n\nSe eliminarán "+orders.length+" pedidos. Esta acción no se puede deshacer.\n"+
+    (unpaid.length ? unpaid.length+" pedidos con pagos pendientes se conservarán en el apartado Deudas.\n" : "")+
+    "Los clientes guardados y el historial no se eliminarán.";
+  if(!confirm(message))return;
+  for(const order of unpaid){
+    if(debts.some(d=>String(d.sourceOrderId||"")===String(order.id)))continue;
+    debts.push({id:"debt-"+String(order.id),sourceOrderId:order.id,name:order.name||"Cliente",address:order.address||"",phone:order.phone||"",amount:Number(order.total||0),note:"Pedido pendiente de pago",date:new Date().toISOString(),paid:false});
+  }
+  const removedIds=new Set(orders.map(o=>String(o.id)));
+  routeTemplates.forEach(route=>{
+    route.stops=(route.stops||[]).filter(stop=>{
+      const id=String(stop.orderId??stop.customId??stop.id??"");
+      return !removedIds.has(id)||id.startsWith("custom-");
+    });
+    route.optimizedOrderIds=(route.optimizedOrderIds||[]).filter(id=>!removedIds.has(String(id)));
+    route.optimizedAt=null;
+  });
+  orders=[];
+  save();render();
+  alert("Lista eliminada. Se conservaron los clientes, las rutas guardadas y el historial; los pagos pendientes siguen en Deudas.");
+}
+
 function wa(phone){let n=phone.replace(/\D/g,"");if(n.startsWith("0"))n="54"+n.slice(1);if(!n.startsWith("54"))n="54"+n;location.href="https://wa.me/"+n}
+function debtsPage(m){
+  const unpaidOrders=orders.filter(o=>String(o.payment||"Pendiente")!=="Pagado");
+  const unpaidDebts=debts.filter(d=>!d.paid);
+  const paidDebts=debts.filter(d=>d.paid);
+  const amountOf=d=>Number(d.amount??d.total??d.balance??d.amountDue??0)||0;
+  const totalOrders=unpaidOrders.reduce((sum,o)=>sum+Number(o.total||0),0);
+  const totalDebts=unpaidDebts.reduce((sum,d)=>sum+amountOf(d),0);
+  let html='<div class="between"><h2>💳 Deudas</h2><span class="badge">'+(unpaidOrders.length+unpaidDebts.length)+' pendientes</span></div>';
+  html+='<div class="card"><div class="muted">Total pendiente de cobro</div><div class="total">'+money(totalOrders+totalDebts)+'</div><p class="muted">Incluye pedidos impagos y deudas guardadas. Al eliminar la lista de pedidos, los pedidos impagos se conservan aquí.</p></div>';
+  html+='<div class="card"><h3 style="margin-top:0">🧾 Pedidos con pago pendiente</h3>';
+  html+=unpaidOrders.length?unpaidOrders.map(o=>'<div class="stock-row" style="gap:10px;align-items:center"><div style="flex:1;min-width:0"><b>'+esc(o.name)+'</b><div class="muted">'+esc(o.address||"Sin dirección")+'</div><b>'+money(o.total)+'</b></div><button class="primary small" onclick="togglePaid(\''+esc(o.id)+'\')">Marcar pagado</button></div>').join(""):'<div class="empty">No hay pedidos con pago pendiente.</div>';
+  html+='</div><div class="card"><h3 style="margin-top:0">📝 Registrar una deuda</h3><label for="debt-name">Cliente *</label><input id="debt-name" placeholder="Nombre del cliente"><label for="debt-amount">Importe *</label><input id="debt-amount" type="number" min="0.01" step="0.01" placeholder="Importe adeudado"><label for="debt-note">Detalle (opcional)</label><input id="debt-note" placeholder="Por qué quedó debiendo"><div class="actions" style="margin-top:10px"><button class="primary" onclick="saveDebt()">➕ Guardar deuda</button></div></div>';
+  html+='<div class="card"><h3 style="margin-top:0">📒 Deudas registradas</h3>';
+  html+=unpaidDebts.length?unpaidDebts.map(d=>'<div class="stock-row" style="gap:10px;align-items:center"><div style="flex:1;min-width:0"><b>'+esc(d.name||d.client||"Cliente")+'</b><div class="muted">'+esc(d.note||d.description||d.address||"Deuda registrada")+'</div><b>'+money(amountOf(d))+'</b></div><div class="actions"><button class="primary small" onclick="toggleDebtPaid(\''+esc(d.id)+'\')">Cobrado</button><button class="danger small" onclick="deleteDebt(\''+esc(d.id)+'\')">✕</button></div></div>').join(""):'<div class="empty">Todavía no hay deudas registradas.</div>';
+  if(paidDebts.length)html+='<details style="margin-top:12px"><summary>Deudas cobradas ('+paidDebts.length+')</summary>'+paidDebts.map(d=>'<div class="stock-row"><span><b>'+esc(d.name||d.client||"Cliente")+'</b><br><small>'+esc(d.note||d.description||"Deuda")+'</small></span><b>'+money(amountOf(d))+'</b></div>').join("")+'</details>';
+  html+='</div>';
+  m.innerHTML=html;
+}
+function saveDebt(){
+  const name=document.getElementById("debt-name")?.value.trim()||"";
+  const amount=Number(document.getElementById("debt-amount")?.value);
+  const note=document.getElementById("debt-note")?.value.trim()||"";
+  if(!name||!Number.isFinite(amount)||amount<=0){alert("Ingresá el nombre del cliente y un importe mayor que cero.");return;}
+  debts.push({id:"debt-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6),name,amount,note,date:new Date().toISOString(),paid:false});
+  save();render();
+}
+function toggleDebtPaid(id){
+  const debt=debts.find(d=>String(d.id)===String(id));
+  if(!debt)return;
+  debt.paid=!debt.paid;save();render();
+}
+function deleteDebt(id){
+  const debt=debts.find(d=>String(d.id)===String(id));
+  if(!debt)return;
+  if(!confirm("¿Eliminar la deuda registrada de "+(debt.name||"este cliente")+"?"))return;
+  debts=debts.filter(d=>String(d.id)!==String(id));save();render();
+}
+
 function stockPage(m){
   let need={};
   orders.forEach(o=>o.items.forEach(i=>{
