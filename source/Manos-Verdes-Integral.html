@@ -268,7 +268,7 @@ function home(m){
       </button>
 
       <button class="tile" onclick="go('deudas')">
-        <b>💳</b><span>Deudas: ${debts.filter(d=>!d.paid).length}</span>
+        <b>💳</b><span>Deudas: ${debts.filter(d=>!d.paid).length + orders.filter(o=>String(o.payment||"Pendiente")!=="Pagado").length}</span>
       </button>
     </div>
   `;
@@ -338,7 +338,6 @@ function ordersPage(m){
 
     <div class="card">
       <div class="actions">
-        <button class="secondary" onclick="finalize()">🏁 Finalizar reparto</button>
         <button class="danger" onclick="deleteAllOrders()">🗑️ Eliminar lista de pedidos</button>
       </div>
       <p class="muted" style="margin-top:10px">Al eliminar la lista, los pedidos con pagos pendientes se conservarán en Deudas.</p>
