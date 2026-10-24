@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Manos Verdes Integral</title>
+<title>Manos Verdes Full</title>
 <style>
 :root{--g:#176b3a;--g2:#2d934f;--cream:#f6f1e5;--ink:#183326;--muted:#68776e;--line:#dce5de;--white:#fff;--red:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
@@ -34,7 +34,7 @@ input,select,textarea{width:100%;border:1px solid #cfdad2;border-radius:10px;pad
 <body>
 <div class="app">
 <header class="top">
- <div class="brand"><img src="icon.png"><div><h1>Manos Verdes Integral</h1><div class="sub">Pedidos · Stock · Ruta · Reparto</div></div></div>
+ <div class="brand"><img src="icon.png"><div><h1>Manos Verdes Full</h1><div class="sub">Pedidos · Stock · Ruta · Reparto</div></div></div>
  <nav id="nav"></nav>
 </header>
 <main id="main"></main>
@@ -1873,7 +1873,7 @@ async function exportManosVerdesBackup(){
       const value = localStorage.getItem(key);
       if(value !== null) storage[key] = value;
     }
-    const backup = {version:1, app:"Manos Verdes Integral", createdAt:new Date().toISOString(), storage};
+    const backup = {version:1, app:"Manos Verdes Full", createdAt:new Date().toISOString(), storage};
     const content = JSON.stringify(backup,null,2);
     const filename = "Manos-Verdes-Backup-" + new Date().toISOString().slice(0,10) + ".json";
 
@@ -1929,7 +1929,7 @@ async function importManosVerdesBackup(input){
       throw new Error("El archivo no tiene el formato de una copia de seguridad compatible.");
     }
     if(backup.app && !String(backup.app).toLowerCase().includes("manos verdes")){
-      if(!confirm("El archivo no identifica a Manos Verdes Integral. ¿Querés intentar cargarlo igualmente?")) return;
+      if(!confirm("El archivo no identifica a Manos Verdes Full. ¿Querés intentar cargarlo igualmente?")) return;
     }
     const incomingRaw = storage.mvi_clients;
     let incomingClients = [];
