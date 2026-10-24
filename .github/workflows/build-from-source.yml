@@ -32,7 +32,7 @@ jobs:
           java-version: '21'
 
       - name: Install Python image tooling
-        run: python3 -m pip install --upgrade pillow
+        run: python3 -m pip install --upgrade pillow cairosvg
 
       - name: Install dependencies
         run: npm install
@@ -48,7 +48,11 @@ jobs:
           python3 - <<'PY'
           from PIL import Image, ImageDraw
           from pathlib import Path
+          import cairosvg
           p = Path("www/icon.png")
+          svg = Path("assets/manos-verdes-icon.svg")
+          if svg.exists():
+              cairosvg.svg2png(url=str(svg), write_to=str(p), output_width=512, output_height=512)
           if not p.exists():
               im = Image.new("RGBA", (512, 512), (22, 107, 58, 255))
               d = ImageDraw.Draw(im)
