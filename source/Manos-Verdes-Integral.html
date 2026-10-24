@@ -1863,23 +1863,47 @@ function backupPage(m){
   `;
 }
 
-function exportManosVerdesBackup(){
-  const keys = ["mvi_orders","mvi_history","mvi_debts","mvi_clients","mvi_route_templates","mvi_active_route","mvi_products"];
-  const storage = {};
-  for(const key of keys){
-    const value = localStorage.getItem(key);
-    if(value !== null) storage[key] = value;
+async function exportManosVerdesBackup(){
+  const button = document.querySelector('button[onclick="exportManosVerdesBackup()"]');
+  if(button){button.disabled=true;button.textContent="⏳ Preparando copia...";}
+  try{
+    const keys = ["mvi_orders","mvi_history","mvi_debts","mvi_clients","mvi_route_templates","mvi_active_route","mvi_products"];
+    const storage = {};
+    for(const key of keys){
+      const value = localStorage.getItem(key);
+      if(value !== null) storage[key] = value;
+    }
+    const backup = {version:1, app:"Manos Verdes Integral", createdAt:new Date().toISOString(), storage};
+    const content = JSON.stringify(backup,null,2);
+    const filename = "Manos-Verdes-Backup-" + new Date().toISOString().slice(0,10) + ".json";
+
+    // En Android/Capacitor, usar el selector nativo para que el usuario elija
+    // dónde guardar el archivo; las descargas Blob no funcionan de forma fiable en WebView.
+    if(window.ManosVerdesBackup && typeof window.ManosVerdesBackup.saveBackup === "function"){
+      const result = await window.ManosVerdesBackup.saveBackup({filename,content});
+      if(result?.cancelled) return;
+      alert("¡Copia de seguridad guardada correctamente!\n\nArchivo: "+filename+"\n\nPodés encontrarla en la ubicación que elegiste.");
+      return;
+    }
+
+    // Respaldo para cuando la aplicación se abre en un navegador normal.
+    const blob = new Blob([content],{type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    alert("Se solicitó la descarga de la copia de seguridad. Revisá las descargas del navegador.");
+  }catch(error){
+    console.error("Crear copia de seguridad:",error);
+    alert("No se pudo crear la copia de seguridad.\n\n"+(error?.message||"Intentá nuevamente."));
+  }finally{
+    if(button){button.disabled=false;button.textContent="⬇️ Crear copia de seguridad";}
   }
-  const backup = {version:1, app:"Manos Verdes Integral", createdAt:new Date().toISOString(), storage};
-  const blob = new Blob([JSON.stringify(backup,null,2)],{type:"application/json;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "Manos-Verdes-Backup-" + new Date().toISOString().slice(0,10) + ".json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 function normalizeBackupText(value){
