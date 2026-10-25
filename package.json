@@ -1,0 +1,18 @@
+{
+  "name": "manos-verdes-full",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Manos Verdes Full Android app",
+  "scripts": {
+    "build:web": "esbuild geo-bridge.js --bundle --format=iife --outfile=www/geo-bridge.bundle.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/geolocation": "^7.1.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "esbuild": "^0.25.5"
+  }
+}
