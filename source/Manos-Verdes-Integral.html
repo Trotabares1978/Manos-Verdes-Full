@@ -736,10 +736,12 @@ async function locationPermission(){try{let p=await window.RuteroideGeo.getCurre
 function routePage(m){
   const pending=orders.filter(o=>!o.delivered);
   const active=routeTemplates.find(r=>r.id===activeRouteId)||null;
+  // La lista de pedidos seleccionados debe conservar los entregados para poder
+  // mostrar la casilla marcada y el texto tachado. Solo el optimizador usa pendientes.
   const routeOrders=active
     ? (active.optimizedOrderIds?.length
-        ? active.optimizedOrderIds.map(id=>pending.find(o=>String(o.id)===String(id))).filter(Boolean)
-        : (active.stops||[]).map(s=>pending.find(o=>String(o.id)===String(s.orderId))).filter(Boolean))
+        ? active.optimizedOrderIds.map(id=>orders.find(o=>String(o.id)===String(id))).filter(Boolean)
+        : (active.stops||[]).map(s=>orders.find(o=>String(o.id)===String(s.orderId))).filter(Boolean))
     : [];
   const routeIds=new Set(routeOrders.map(o=>String(o.id)));
 
