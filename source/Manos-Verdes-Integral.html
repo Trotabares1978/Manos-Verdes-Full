@@ -15,7 +15,7 @@ h2{font-size:20px;margin:4px 0 12px}.muted{color:var(--muted);font-size:13px}.be
 button.primary,button.secondary,button.danger{border:0;border-radius:11px;padding:12px 14px;font-weight:800}.primary{background:var(--g);color:#fff}.secondary{background:#edf4ef;color:var(--g)}.danger{background:#fbe9e7;color:var(--red)}.small{padding:8px 10px!important;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}
 input,select,textarea{width:100%;border:1px solid #cfdad2;border-radius:10px;padding:11px;background:#fff;font:inherit}.address-wrap{position:relative}.address-status{font-size:12px;margin-top:6px}.address-ok{color:var(--g)}.address-warn{color:#9a6700}.address-error{color:var(--red)}gmp-place-autocomplete{display:block;width:100%}textarea{min-height:70px}label{display:block;font-size:12px;font-weight:800;margin:10px 0 5px}
 .product{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:10px 0}.qty{display:flex;align-items:center;gap:7px}.qty button{width:34px;height:34px;border:0;border-radius:9px;background:#e8f2eb;color:var(--g);font-size:18px;font-weight:900}
-.order{border-top:1px solid var(--line);padding:12px 0}.stock-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.empty{text-align:center;color:var(--muted);padding:24px}
+.order{border-top:1px solid var(--line);padding:12px 0}.order.order-delivered{background:#f4faf5;border-color:#b8d9c2}.order-delivered .order-customer-name,.order-delivered .order-items{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#37834d;color:#65786a}.stock-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.empty{text-align:center;color:var(--muted);padding:24px}
 .modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:50}.modal.open{display:flex}.sheet{background:#fff;width:min(760px,100%);border-radius:20px 20px 0 0;padding:18px;max-height:90vh;overflow:auto}@media(min-width:600px){.modal{align-items:center}.sheet{border-radius:20px}}
 </style>
 <style>
@@ -283,16 +283,16 @@ function ordersPage(m){
     </div>
 
     ${a.length ? a.map(o=>`
-      <div class="card order">
+      <div class="card order ${o.delivered ? "order-delivered" : ""}">
         <div class="between">
           <div>
-            <b>${esc(o.name)}</b>
+            <b class="order-customer-name">${esc(o.name)}</b>
             <div class="muted">📍 ${esc(o.address)}</div>
           </div>
           <b>${money(o.total)}</b>
         </div>
 
-        <div class="muted" style="margin:7px 0">
+        <div class="muted order-items" style="margin:7px 0">
           ${o.items.map(i=>`${i.qty} × ${esc(i.name)}`).join(" · ")}
         </div>
 
@@ -314,7 +314,7 @@ function ordersPage(m){
           </button>
 
           <label style="display:flex;align-items:center;gap:7px;margin:0;padding:7px 10px;border-radius:10px;background:${o.delivered ? "#e4f4e9" : "#fff3cd"};color:${o.delivered ? "var(--g)" : "#856404"};font-size:13px;cursor:pointer">
-            <input type="checkbox" style="width:18px;height:18px;margin:0;accent-color:var(--g)" ${o.delivered ? "checked" : ""} onchange="toggleDelivered('${o.id}')">
+            <input type="checkbox" style="width:18px;height:18px;margin:0;accent-color:var(--g)" ${o.delivered ? "checked" : ""} onchange="setDelivered('${o.id}', this.checked)">
             🚚 Entregado
           </label>
 
@@ -578,14 +578,16 @@ function togglePaid(id){
   render();
 }
 
-function toggleDelivered(id){
-  const o=orders.find(x=>x.id==id);
+function setDelivered(id, checked){
+  const o=orders.find(x=>String(x.id)===String(id));
   if(!o)return;
-
-  o.delivered=!o.delivered;
-
+  o.delivered=Boolean(checked);
   save();
   render();
+}
+function toggleDelivered(id){
+  const o=orders.find(x=>String(x.id)===String(id));
+  if(o) setDelivered(id, !o.delivered);
 }
 
 function deleteOrder(id){
